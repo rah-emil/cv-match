@@ -1,6 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { DEFAULT_SETTINGS } from '../types/settings'
-import { generateCv, buildUserMessage, SYSTEM_PROMPT } from './openai'
+import { DEFAULT_SETTINGS, DEFAULT_MATCH_ASSESSMENT_PROMPT, DEFAULT_SYSTEM_PROMPT } from '../types/settings'
+import {
+  generateCv,
+  evaluateMatch,
+  buildUserMessage,
+  buildMatchAssessmentUserMessage,
+  buildCompletionBody,
+  usesMaxCompletionTokens,
+} from './openai'
 
 describe('openai service', () => {
   beforeEach(() => {
@@ -8,68 +15,162 @@ describe('openai service', () => {
   })
 
   describe('buildUserMessage', () => {
-    it('includes job text and cover letter', () => {
+    it('includes job text and cv content', () => {
       const settings = {
         ...DEFAULT_SETTINGS,
-        coverLetter: 'Senior engineer with 10 years experience',
-        cvFilePath: '/path/to/cv.pdf',
+        cvContent: 'Senior engineer with 10 years experience',
+        coverLetter: 'Extra context',
       }
 
       const msg = buildUserMessage(settings, 'Looking for a React developer')
 
-      expect(msg).toContain('=== JOB POSTING ===')
+      expect(msg).toContain('=== JOB DESCRIPTION ===')
       expect(msg).toContain('Looking for a React developer')
-      expect(msg).toContain('=== CANDIDATE BACKGROUND / COVER LETTER ===')
+      expect(msg).toContain('=== MY CV ===')
       expect(msg).toContain('Senior engineer with 10 years experience')
-      expect(msg).toContain('/path/to/cv.pdf')
-      expect(msg).toContain('Do NOT invent any experience')
+      expect(msg).toContain('=== ADDITIONAL CONTEXT ===')
+      expect(msg).toContain('Extra context')
     })
 
-    it('omits cv path section when empty', () => {
-      const settings = {
-        ...DEFAULT_SETTINGS,
-        coverLetter: 'Some experience',
-      }
-
+    it('omits additional context section when cover letter is empty', () => {
+      const settings = { ...DEFAULT_SETTINGS, cvContent: 'My CV text' }
       const msg = buildUserMessage(settings, 'Job text')
 
-      expect(msg).not.toContain('CV FILE PATH')
+      expect(msg).not.toContain('ADDITIONAL CONTEXT')
+    })
+
+    it('includes output format instructions', () => {
+      const msg = buildUserMessage(DEFAULT_SETTINGS, 'Job text')
+
+      expect(msg).toContain('=== OUTPUT FORMAT ===')
+      expect(msg).toContain('Markdown')
+    })
+
+    it('shows placeholder when no cv content', () => {
+      const msg = buildUserMessage(DEFAULT_SETTINGS, 'Job text')
+
+      expect(msg).toContain('no CV uploaded')
     })
   })
 
-  describe('SYSTEM_PROMPT', () => {
-    it('emphasizes truthfulness', () => {
-      expect(SYSTEM_PROMPT).toContain('NEVER fabricate')
-      expect(SYSTEM_PROMPT).toContain('100% truthful')
+  describe('buildMatchAssessmentUserMessage', () => {
+    it('requests score in Overall Match Score format', () => {
+      const msg = buildMatchAssessmentUserMessage(
+        { ...DEFAULT_SETTINGS, cvContent: 'My CV' },
+        'Job text',
+      )
+
+      expect(msg).toContain('Overall Match Score: X/10')
+      expect(msg).toContain('=== JOB DESCRIPTION ===')
+      expect(msg).toContain('=== MY CV ===')
+    })
+  })
+
+  describe('usesMaxCompletionTokens', () => {
+    it('returns true for gpt-5 models', () => {
+      expect(usesMaxCompletionTokens('gpt-5.5')).toBe(true)
+      expect(usesMaxCompletionTokens('gpt-5.4-mini')).toBe(true)
+    })
+
+    it('returns false for gpt-4o', () => {
+      expect(usesMaxCompletionTokens('gpt-4o')).toBe(false)
+    })
+  })
+
+  describe('buildCompletionBody', () => {
+    it('uses max_completion_tokens for gpt-5 models', () => {
+      const body = buildCompletionBody(
+        { ...DEFAULT_SETTINGS, model: 'gpt-5.5' },
+        [{ role: 'user', content: 'hi' }],
+      )
+      expect(body).toHaveProperty('max_completion_tokens', 4096)
+      expect(body).not.toHaveProperty('max_tokens')
+      expect(body).not.toHaveProperty('temperature')
+    })
+
+    it('uses max_tokens for gpt-4o', () => {
+      const body = buildCompletionBody(
+        { ...DEFAULT_SETTINGS, model: 'gpt-4o' },
+        [{ role: 'user', content: 'hi' }],
+      )
+      expect(body).toHaveProperty('max_tokens', 4096)
+      expect(body).toHaveProperty('temperature', 0.4)
+      expect(body).not.toHaveProperty('max_completion_tokens')
+    })
+
+    it('uses custom maxOutputTokens from settings', () => {
+      const body = buildCompletionBody(
+        { ...DEFAULT_SETTINGS, model: 'gpt-4o', maxOutputTokens: 8192 },
+        [{ role: 'user', content: 'hi' }],
+      )
+      expect(body).toHaveProperty('max_tokens', 8192)
     })
   })
 
   describe('generateCv', () => {
-    it('calls OpenAI API with correct parameters', async () => {
+    it('uses systemPrompt from settings as system message', async () => {
       const mockResponse = {
         choices: [{ message: { content: 'Generated CV text' } }],
       }
 
-      globalThis.fetch = vi.fn().mockResolvedValue({
+      const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       })
+      globalThis.fetch = fetchMock
+
+      const settings = {
+        ...DEFAULT_SETTINGS,
+        openAiApiKey: 'sk-test-key',
+        systemPrompt: 'Custom system prompt',
+        cvContent: 'My CV',
+      }
+
+      await generateCv({ settings, jobText: 'Need a developer' })
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        messages: { role: string; content: string }[]
+      }
+      expect(body.messages[0].role).toBe('system')
+      expect(body.messages[0].content).toBe('Custom system prompt')
+    })
+
+    it('uses DEFAULT_SYSTEM_PROMPT when settings has default', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
+      })
+      globalThis.fetch = fetchMock
+
+      await generateCv({ settings: DEFAULT_SETTINGS, jobText: 'Job' })
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        messages: { role: string; content: string }[]
+      }
+      expect(body.messages[0].content).toBe(DEFAULT_SYSTEM_PROMPT)
+    })
+
+    it('calls OpenAI API with correct parameters', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: 'Generated CV text' } }],
+          }),
+      })
+      globalThis.fetch = fetchMock
 
       const settings = {
         ...DEFAULT_SETTINGS,
         openAiApiKey: 'sk-test-key',
         openAiApiUrl: 'https://api.openai.com/v1',
         model: 'gpt-4o',
-        coverLetter: 'My experience',
       }
 
-      const result = await generateCv({
-        settings,
-        jobText: 'Need a developer',
-      })
+      const result = await generateCv({ settings, jobText: 'Need a developer' })
 
       expect(result).toBe('Generated CV text')
-      expect(fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         'https://api.openai.com/v1/chat/completions',
         expect.objectContaining({
           method: 'POST',
@@ -87,14 +188,8 @@ describe('openai service', () => {
         text: () => Promise.resolve('Unauthorized'),
       })
 
-      const settings = {
-        ...DEFAULT_SETTINGS,
-        openAiApiKey: 'bad-key',
-        coverLetter: 'My experience',
-      }
-
       await expect(
-        generateCv({ settings, jobText: 'Job' }),
+        generateCv({ settings: DEFAULT_SETTINGS, jobText: 'Job' }),
       ).rejects.toThrow('OpenAI API error 401')
     })
 
@@ -104,15 +199,58 @@ describe('openai service', () => {
         json: () => Promise.resolve({ choices: [] }),
       })
 
+      await expect(
+        generateCv({ settings: DEFAULT_SETTINGS, jobText: 'Job' }),
+      ).rejects.toThrow('OpenAI returned an empty response')
+    })
+  })
+
+  describe('evaluateMatch', () => {
+    it('uses matchAssessmentModel instead of CV model', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: 'Overall Match Score: 8/10' } }],
+          }),
+      })
+      globalThis.fetch = fetchMock
+
       const settings = {
         ...DEFAULT_SETTINGS,
-        openAiApiKey: 'sk-key',
-        coverLetter: 'My experience',
+        openAiApiKey: 'sk-test-key',
+        model: 'gpt-5.5',
+        matchAssessmentModel: 'gpt-4o-mini-2024-07-18',
+        matchAssessmentPrompt: 'Custom match prompt',
+        cvContent: 'My CV',
       }
 
-      await expect(
-        generateCv({ settings, jobText: 'Job' }),
-      ).rejects.toThrow('OpenAI returned an empty response')
+      await evaluateMatch({ settings, jobText: 'Need a developer' })
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        model: string
+        messages: { role: string; content: string }[]
+      }
+      expect(body.model).toBe('gpt-4o-mini-2024-07-18')
+      expect(body.messages[0].content).toBe('Custom match prompt')
+    })
+
+    it('uses DEFAULT_MATCH_ASSESSMENT_PROMPT when settings has default', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
+      })
+      globalThis.fetch = fetchMock
+
+      await evaluateMatch({
+        settings: { ...DEFAULT_SETTINGS, openAiApiKey: 'sk-test' },
+        jobText: 'Job',
+      })
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        messages: { role: string; content: string }[]
+      }
+      expect(body.messages[0].content).toBe(DEFAULT_MATCH_ASSESSMENT_PROMPT)
     })
   })
 })

@@ -24,7 +24,7 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ['<all_urls>'],
-      js: ['src/content/extractJobText.ts'],
+      js: ['src/content/extractJobText.ts', 'src/content/autoFillForm.ts'],
       run_at: 'document_idle',
     },
   ],

@@ -107,12 +107,20 @@ async function handleSave(nextSettings: ExtensionSettings, silent = false) {
 }
 
 .popup__tabs :deep(.ant-tabs-nav) {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+}
+
+.popup__tabs :deep(.ant-tabs-tab) {
+  padding: 6px 0;
 }
 
 .popup__tab-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+}
+
+.popup__tab-label :deep(.anticon) {
+  font-size: 13px;
 }
 </style>

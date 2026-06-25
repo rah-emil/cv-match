@@ -1,24 +1,11 @@
 import type { ExtensionSettings } from '../types/settings'
 
-const SYSTEM_PROMPT = `You are an expert CV/resume writer and career coach.
-
-Your task is to adapt the candidate's existing CV for a specific job posting.
-
-IMPORTANT RULES:
-- NEVER fabricate experience, skills, or qualifications the candidate does not have
-- ONLY reorganize, rephrase, and emphasize existing experience to match the job requirements
-- Use keywords and terminology from the job posting where they honestly apply
-- Highlight relevant projects, achievements, and skills that align with the role
-- Adjust the professional summary/objective to target this specific position
-- Reorder sections to put the most relevant experience first
-- Quantify achievements where possible using existing data
-- Keep the tone professional and concise
-- Match the language of the job posting (if the job posting is in English, write the CV in English, etc.)
-- Format the output as clean, well-structured text ready to be used as a CV
-
-The goal is to make the candidate appear as relevant as possible to ATS systems and HR reviewers, while remaining 100% truthful about their actual experience and qualifications.`
-
 export interface GenerateCvRequest {
+  settings: ExtensionSettings
+  jobText: string
+}
+
+export interface EvaluateMatchRequest {
   settings: ExtensionSettings
   jobText: string
 }
@@ -28,16 +15,42 @@ export interface OpenAiMessage {
   content: string
 }
 
-export async function generateCv(req: GenerateCvRequest): Promise<string> {
-  const { settings, jobText } = req
+/** Newer OpenAI models require max_completion_tokens instead of max_tokens. */
+export function usesMaxCompletionTokens(model: string): boolean {
+  const m = model.toLowerCase()
+  return (
+    m.startsWith('gpt-5') ||
+    m.startsWith('gpt-4.1') ||
+    m.startsWith('o1') ||
+    m.startsWith('o3') ||
+    m.startsWith('o4')
+  )
+}
+
+export function buildCompletionBody(
+  settings: ExtensionSettings,
+  messages: OpenAiMessage[],
+  model = settings.model,
+) {
+  const tokens = settings.maxOutputTokens || 4096
+  const limit = { max_completion_tokens: tokens } as const
+  const legacyLimit = { max_tokens: tokens } as const
+  const newModel = usesMaxCompletionTokens(model)
+
+  return {
+    model,
+    messages,
+    ...(newModel ? {} : { temperature: 0.4 }),
+    ...(newModel ? limit : legacyLimit),
+  }
+}
+
+async function completeChat(
+  settings: ExtensionSettings,
+  messages: OpenAiMessage[],
+  model = settings.model,
+): Promise<string> {
   const url = `${settings.openAiApiUrl.replace(/\/+$/, '')}/chat/completions`
-
-  const userMessage = buildUserMessage(settings, jobText)
-
-  const messages: OpenAiMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: userMessage },
-  ]
 
   const response = await fetch(url, {
     method: 'POST',
@@ -45,12 +58,7 @@ export async function generateCv(req: GenerateCvRequest): Promise<string> {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${settings.openAiApiKey}`,
     },
-    body: JSON.stringify({
-      model: settings.model,
-      messages,
-      temperature: 0.4,
-      max_tokens: 4096,
-    }),
+    body: JSON.stringify(buildCompletionBody(settings, messages, model)),
   })
 
   if (!response.ok) {
@@ -70,33 +78,80 @@ export async function generateCv(req: GenerateCvRequest): Promise<string> {
   return content
 }
 
-function buildUserMessage(
-  settings: ExtensionSettings,
-  jobText: string,
-): string {
+export async function generateCv(req: GenerateCvRequest): Promise<string> {
+  const { settings, jobText } = req
+
+  return completeChat(settings, [
+    { role: 'system', content: settings.systemPrompt },
+    { role: 'user', content: buildUserMessage(settings, jobText) },
+  ])
+}
+
+export async function evaluateMatch(req: EvaluateMatchRequest): Promise<string> {
+  const { settings, jobText } = req
+  const model = settings.matchAssessmentModel || settings.model
+
+  return completeChat(
+    settings,
+    [
+      { role: 'system', content: settings.matchAssessmentPrompt },
+      { role: 'user', content: buildMatchAssessmentUserMessage(settings, jobText) },
+    ],
+    model,
+  )
+}
+
+function buildBaseUserMessage(settings: ExtensionSettings, jobText: string): string {
   const parts: string[] = []
 
-  parts.push('=== JOB POSTING ===')
+  parts.push('=== JOB DESCRIPTION ===')
   parts.push(jobText)
 
-  if (settings.cvFilePath.trim()) {
-    parts.push('\n=== CANDIDATE CV FILE PATH ===')
-    parts.push(settings.cvFilePath)
+  parts.push('\n=== MY CV ===')
+  if (settings.cvContent.trim()) {
+    parts.push(settings.cvContent)
+  } else {
+    parts.push('(no CV uploaded — use the information available to generate the best possible output)')
   }
 
   if (settings.coverLetter.trim()) {
-    parts.push('\n=== CANDIDATE BACKGROUND / COVER LETTER ===')
+    parts.push('\n=== ADDITIONAL CONTEXT ===')
     parts.push(settings.coverLetter)
   }
 
+  return parts.join('\n')
+}
+
+export function buildUserMessage(
+  settings: ExtensionSettings,
+  jobText: string,
+): string {
+  const parts = [buildBaseUserMessage(settings, jobText)]
+
+  parts.push('\n=== OUTPUT FORMAT ===')
   parts.push(
-    '\n=== INSTRUCTIONS ===',
-    'Based on the job posting above and the candidate information provided, generate an adapted CV.',
-    'Reorganize and rephrase the candidate\'s experience to highlight relevance to this specific role.',
-    'Do NOT invent any experience or skills — only adapt and emphasize what is real.',
+    'Return the tailored CV as clean Markdown.',
+    'Use standard Markdown headings (##), bullet points (-), and bold (**) where appropriate.',
+    'Do not wrap the output in a code block. Start directly with the CV content.',
   )
 
   return parts.join('\n')
 }
 
-export { SYSTEM_PROMPT, buildUserMessage }
+export function buildMatchAssessmentUserMessage(
+  settings: ExtensionSettings,
+  jobText: string,
+): string {
+  const parts = [buildBaseUserMessage(settings, jobText)]
+
+  parts.push('\n=== OUTPUT FORMAT ===')
+  parts.push(
+    'Start with a line exactly in this format: Overall Match Score: X/10',
+    'Where X is your numeric score from 0 to 10 (decimals allowed, e.g. 7.5/10).',
+    'Then provide the full assessment using numbered sections 2–7 from the system instructions.',
+    'Use clear Markdown headings (##) and bullet points (-).',
+    'Do not wrap the output in a code block.',
+  )
+
+  return parts.join('\n')
+}

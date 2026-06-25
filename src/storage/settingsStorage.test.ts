@@ -38,9 +38,22 @@ describe('settingsStorage', () => {
       coverLetter: 'Hello hiring manager',
       openAiApiUrl: 'https://custom.api/v1',
       model: 'gpt-4o-mini',
+      matchAssessmentModel: 'gpt-5-nano-2025-08-07',
       cvFilePath: '/Users/me/cv.pdf',
+      cvContent: 'Full extracted CV text here',
       themeMode: 'dark',
       systemPrompt: 'Custom prompt text',
+      matchAssessmentPrompt: 'Custom match prompt',
+      maxOutputTokens: 8192,
+      avatarFilePath: 'avatar.png',
+      avatarDataUrl: 'data:image/png;base64,abc',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      email: 'jane@example.com',
+      phone: '+1 555',
+      linkedIn: 'https://linkedin.com/in/jane',
+      telegram: '@jane',
+      website: 'https://jane.dev',
     }
 
     await saveSettings(nextSettings)

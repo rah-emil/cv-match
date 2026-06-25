@@ -31,6 +31,13 @@ body {
   --result-header-border: #303030;
   --result-title: rgba(255, 255, 255, 0.65);
   --result-text: rgba(255, 255, 255, 0.85);
+  --md-code-bg: rgba(255, 255, 255, 0.08);
+  --evaluate-btn-bg: #162312;
+  --evaluate-btn-border: #274916;
+  --evaluate-btn-text: #95de64;
+  --evaluate-btn-hover-bg: #1a2a14;
+  --evaluate-btn-hover-border: #3f6600;
+  --evaluate-btn-hover-text: #b7eb8f;
 }
 
 .popup--light {
@@ -52,4 +59,83 @@ body {
   --result-header-border: #f0f0f0;
   --result-title: rgba(0, 0, 0, 0.65);
   --result-text: rgba(0, 0, 0, 0.85);
+  --md-code-bg: rgba(0, 0, 0, 0.06);
+  --evaluate-btn-bg: #f6ffed;
+  --evaluate-btn-border: #b7eb8f;
+  --evaluate-btn-text: #389e0d;
+  --evaluate-btn-hover-bg: #eef9e6;
+  --evaluate-btn-hover-border: #95de64;
+  --evaluate-btn-hover-text: #237804;
+}
+
+/* Match score card — light theme */
+.main-panel__score-card[data-band='excellent'] {
+  --score-bg: #f6ffed;
+  --score-border: #b7eb8f;
+  --score-text: #237804;
+  --score-muted: #389e0d;
+}
+
+.main-panel__score-card[data-band='strong'] {
+  --score-bg: #fcffe6;
+  --score-border: #d3f261;
+  --score-text: #5b8c00;
+  --score-muted: #7cb305;
+}
+
+.main-panel__score-card[data-band='partial'] {
+  --score-bg: #fffbe6;
+  --score-border: #ffe58f;
+  --score-text: #ad6800;
+  --score-muted: #d48806;
+}
+
+.main-panel__score-card[data-band='weak'] {
+  --score-bg: #fff7e6;
+  --score-border: #ffd591;
+  --score-text: #d46b08;
+  --score-muted: #fa8c16;
+}
+
+.main-panel__score-card[data-band='poor'] {
+  --score-bg: #fff1f0;
+  --score-border: #ffa39e;
+  --score-text: #cf1322;
+  --score-muted: #f5222d;
+}
+
+/* Match score card — dark theme */
+.popup--dark .main-panel__score-card[data-band='excellent'] {
+  --score-bg: #162312;
+  --score-border: #274916;
+  --score-text: #95de64;
+  --score-muted: #73d13d;
+}
+
+.popup--dark .main-panel__score-card[data-band='strong'] {
+  --score-bg: #1f2611;
+  --score-border: #3f4f13;
+  --score-text: #d3f261;
+  --score-muted: #a0d911;
+}
+
+.popup--dark .main-panel__score-card[data-band='partial'] {
+  --score-bg: #2b2111;
+  --score-border: #594214;
+  --score-text: #ffc53d;
+  --score-muted: #faad14;
+}
+
+.popup--dark .main-panel__score-card[data-band='weak'] {
+  --score-bg: #2b1d11;
+  --score-border: #613400;
+  --score-text: #ffa940;
+  --score-muted: #fa8c16;
+}
+
+.popup--dark .main-panel__score-card[data-band='poor'] {
+  --score-bg: #2a1215;
+  --score-border: #58181c;
+  --score-text: #ff7875;
+  --score-muted: #ff4d4f;
 }

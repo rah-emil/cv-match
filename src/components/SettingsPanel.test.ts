@@ -2,8 +2,10 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import Antd from 'ant-design-vue'
 import {
+  DEFAULT_MATCH_ASSESSMENT_PROMPT,
   DEFAULT_SETTINGS,
   DEFAULT_SYSTEM_PROMPT,
+  MAX_OUTPUT_TOKENS_HINT,
 } from '../types/settings'
 import SettingsPanel from './SettingsPanel.vue'
 
@@ -21,7 +23,7 @@ function mountSettingsPanel(onSave = vi.fn()) {
 }
 
 describe('SettingsPanel', () => {
-  it('renders appearance, OpenAI connection and system prompt sections', () => {
+  it('renders appearance, OpenAI connection and CV generation prompt sections', () => {
     const wrapper = mountSettingsPanel()
 
     expect(wrapper.text()).toContain('Appearance')
@@ -30,12 +32,44 @@ describe('SettingsPanel', () => {
     expect(wrapper.text()).toContain('Dark')
     expect(wrapper.text()).toContain('OpenAI connection')
     expect(wrapper.text()).toContain('Get token')
-    expect(wrapper.text()).toContain('System prompt')
+    expect(wrapper.text()).toContain('CV generation prompt')
+    expect(wrapper.text()).toContain('Match assessment prompt')
     expect(wrapper.find('input[placeholder="sk-..."]').exists()).toBe(true)
     expect(
       wrapper.find('input[placeholder="https://api.openai.com/v1"]').exists(),
     ).toBe(true)
+    expect(wrapper.text()).toContain('CV generation model')
+    expect(wrapper.text()).toContain('Match evaluation model')
     expect(wrapper.text()).toContain('Save settings')
+  })
+
+  it('does not show max tokens hint at default value', () => {
+    const wrapper = mountSettingsPanel()
+
+    expect(wrapper.text()).not.toContain(MAX_OUTPUT_TOKENS_HINT)
+  })
+
+  it('shows max tokens hint when value is changed', async () => {
+    const wrapper = mountSettingsPanel()
+
+    const input = wrapper.find('.ant-input-number-input')
+    await input.setValue('8192')
+    await input.trigger('change')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(MAX_OUTPUT_TOKENS_HINT)
+  })
+
+  it('shows max tokens hint when loaded with non-default value', () => {
+    const wrapper = mount(SettingsPanel, {
+      props: {
+        settings: { ...DEFAULT_SETTINGS, maxOutputTokens: 8192 },
+        saving: false,
+      },
+      global: { plugins: [Antd] },
+    })
+
+    expect(wrapper.text()).toContain(MAX_OUTPUT_TOKENS_HINT)
   })
 
   it('renders Get token as a link to platform.openai.com', () => {
@@ -46,12 +80,13 @@ describe('SettingsPanel', () => {
     expect(link.attributes('href')).toBe('https://platform.openai.com/')
   })
 
-  it('shows system prompt textarea as disabled by default', () => {
+  it('shows CV generation prompt textarea as disabled by default', () => {
     const wrapper = mountSettingsPanel()
-    const textarea = wrapper.find('textarea.settings-panel__prompt-textarea')
+    const textareas = wrapper.findAll('textarea.settings-panel__prompt-textarea')
 
-    expect(textarea.exists()).toBe(true)
-    expect(textarea.attributes('disabled')).toBeDefined()
+    expect(textareas).toHaveLength(2)
+    expect(textareas[0].attributes('disabled')).toBeDefined()
+    expect(textareas[1].attributes('disabled')).toBeDefined()
   })
 
   it('shows warning and enables textarea when switch is toggled', async () => {
@@ -78,6 +113,7 @@ describe('SettingsPanel', () => {
       ...DEFAULT_SETTINGS,
       openAiApiKey: 'sk-test-key',
       systemPrompt: DEFAULT_SYSTEM_PROMPT,
+      matchAssessmentPrompt: DEFAULT_MATCH_ASSESSMENT_PROMPT,
     })
   })
 
@@ -93,7 +129,12 @@ describe('SettingsPanel', () => {
     await flushPromises()
 
     expect(onSave).toHaveBeenCalledWith(
-      { ...DEFAULT_SETTINGS, themeMode: 'dark', systemPrompt: DEFAULT_SYSTEM_PROMPT },
+      {
+        ...DEFAULT_SETTINGS,
+        themeMode: 'dark',
+        systemPrompt: DEFAULT_SYSTEM_PROMPT,
+        matchAssessmentPrompt: DEFAULT_MATCH_ASSESSMENT_PROMPT,
+      },
       true,
     )
   })

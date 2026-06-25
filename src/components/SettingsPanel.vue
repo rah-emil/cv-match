@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import {
   LinkOutlined,
   LockOutlined,
@@ -9,7 +9,10 @@ import {
 } from '@ant-design/icons-vue'
 import ThemePicker from './ThemePicker.vue'
 import {
+  DEFAULT_MATCH_ASSESSMENT_PROMPT,
+  DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_SYSTEM_PROMPT,
+  MAX_OUTPUT_TOKENS_HINT,
   PRESET_MODELS,
   type ExtensionSettings,
   type ThemeMode,
@@ -25,7 +28,13 @@ const emit = defineEmits<{
 }>()
 
 const form = reactive<ExtensionSettings>({ ...props.settings })
-const promptEditing = ref(false)
+const cvPromptEditing = ref(false)
+const matchPromptEditing = ref(false)
+const maxTokensChanged = ref(false)
+
+const showMaxTokensHint = computed(
+  () => maxTokensChanged.value || form.maxOutputTokens !== DEFAULT_MAX_OUTPUT_TOKENS,
+)
 
 const modelOptions = PRESET_MODELS.map((m) => ({ value: m, label: m }))
 
@@ -46,16 +55,30 @@ function handleThemeChange(mode: ThemeMode) {
   emit('save', { ...form }, true)
 }
 
-function togglePromptEditing(val: boolean) {
-  promptEditing.value = val
+function toggleCvPromptEditing(val: boolean) {
+  cvPromptEditing.value = val
   if (!val) {
-    // reset to saved value when locking
     form.systemPrompt = props.settings.systemPrompt
   }
 }
 
-function resetPrompt() {
+function toggleMatchPromptEditing(val: boolean) {
+  matchPromptEditing.value = val
+  if (!val) {
+    form.matchAssessmentPrompt = props.settings.matchAssessmentPrompt
+  }
+}
+
+function resetCvPrompt() {
   form.systemPrompt = DEFAULT_SYSTEM_PROMPT
+}
+
+function resetMatchPrompt() {
+  form.matchAssessmentPrompt = DEFAULT_MATCH_ASSESSMENT_PROMPT
+}
+
+function handleMaxTokensChange() {
+  maxTokensChanged.value = true
 }
 </script>
 
@@ -92,7 +115,8 @@ function resetPrompt() {
         </a>
       </div>
       <p class="settings-panel__hint">
-        API credentials and model used to generate your CV.
+        API credentials and models. Use a fast model for match evaluation, a
+        stronger one for CV generation.
       </p>
 
       <a-form-item label="OpenAI API key" name="openAiApiKey">
@@ -110,7 +134,7 @@ function resetPrompt() {
         />
       </a-form-item>
 
-      <a-form-item label="Model" name="model">
+      <a-form-item label="CV generation model" name="model">
         <a-select
           v-model:value="form.model"
           mode="combobox"
@@ -123,25 +147,60 @@ function resetPrompt() {
           allow-clear
         />
       </a-form-item>
+
+      <a-form-item label="Match evaluation model" name="matchAssessmentModel">
+        <a-select
+          v-model:value="form.matchAssessmentModel"
+          mode="combobox"
+          :options="modelOptions"
+          placeholder="gpt-4o-mini-2024-07-18"
+          :filter-option="
+            (input: string, option: { value: string } | undefined) =>
+              option?.value?.toLowerCase().includes(input.toLowerCase()) ?? false
+          "
+          allow-clear
+        />
+      </a-form-item>
+
+      <a-form-item label="Max output tokens" name="maxOutputTokens">
+        <a-input-number
+          v-model:value="form.maxOutputTokens"
+          :min="256"
+          :max="32768"
+          :step="256"
+          style="width: 100%"
+          @change="handleMaxTokensChange"
+        />
+      </a-form-item>
+
+      <a-alert
+        v-if="showMaxTokensHint"
+        type="info"
+        show-icon
+        banner
+        class="settings-panel__tokens-hint"
+      >
+        <template #message>{{ MAX_OUTPUT_TOKENS_HINT }}</template>
+      </a-alert>
     </div>
 
     <a-divider class="settings-panel__divider" />
 
-    <!-- System prompt -->
+    <!-- CV generation prompt -->
     <div class="settings-panel__group">
       <div class="settings-panel__label-row">
-        <span class="settings-panel__label">System prompt</span>
+        <span class="settings-panel__label">CV generation prompt</span>
         <div class="settings-panel__prompt-controls">
           <a-tooltip
-            v-if="!promptEditing"
-            title="Unlock to edit the system prompt"
+            v-if="!cvPromptEditing"
+            title="Unlock to edit the CV generation prompt"
           >
             <a-switch
-              :checked="promptEditing"
+              :checked="cvPromptEditing"
               size="small"
               :checked-children="null"
               :un-checked-children="null"
-              @change="togglePromptEditing"
+              @change="toggleCvPromptEditing"
             >
               <template #checkedChildren>
                 <UnlockOutlined />
@@ -153,9 +212,9 @@ function resetPrompt() {
           </a-tooltip>
           <a-switch
             v-else
-            :checked="promptEditing"
+            :checked="cvPromptEditing"
             size="small"
-            @change="togglePromptEditing"
+            @change="toggleCvPromptEditing"
           >
             <template #checkedChildren>
               <UnlockOutlined />
@@ -168,7 +227,7 @@ function resetPrompt() {
       </div>
 
       <a-alert
-        v-if="promptEditing"
+        v-if="cvPromptEditing"
         type="warning"
         show-icon
         banner
@@ -179,26 +238,104 @@ function resetPrompt() {
         </template>
         <template #message>
           Editing this prompt may affect the quality and accuracy of your
-          tailored CV and cover letter. Keep it focused on real experience,
-          relevant skills, and natural keyword matching with the job description.
+          tailored CV. Keep it focused on real experience, relevant skills, and
+          natural keyword matching with the job description.
         </template>
       </a-alert>
 
       <a-form-item name="systemPrompt" class="settings-panel__prompt-item">
         <a-textarea
           v-model:value="form.systemPrompt"
-          :disabled="!promptEditing"
+          :disabled="!cvPromptEditing"
           :rows="10"
           class="settings-panel__prompt-textarea"
-          :class="{ 'settings-panel__prompt-textarea--locked': !promptEditing }"
+          :class="{ 'settings-panel__prompt-textarea--locked': !cvPromptEditing }"
         />
       </a-form-item>
 
       <a-button
-        v-if="promptEditing"
+        v-if="cvPromptEditing"
         size="small"
         class="settings-panel__reset-btn"
-        @click="resetPrompt"
+        @click="resetCvPrompt"
+      >
+        Reset to default
+      </a-button>
+    </div>
+
+    <a-divider class="settings-panel__divider" />
+
+    <!-- Match assessment prompt -->
+    <div class="settings-panel__group">
+      <div class="settings-panel__label-row">
+        <span class="settings-panel__label">Match assessment prompt</span>
+        <div class="settings-panel__prompt-controls">
+          <a-tooltip
+            v-if="!matchPromptEditing"
+            title="Unlock to edit the match assessment prompt"
+          >
+            <a-switch
+              :checked="matchPromptEditing"
+              size="small"
+              :checked-children="null"
+              :un-checked-children="null"
+              @change="toggleMatchPromptEditing"
+            >
+              <template #checkedChildren>
+                <UnlockOutlined />
+              </template>
+              <template #unCheckedChildren>
+                <LockOutlined />
+              </template>
+            </a-switch>
+          </a-tooltip>
+          <a-switch
+            v-else
+            :checked="matchPromptEditing"
+            size="small"
+            @change="toggleMatchPromptEditing"
+          >
+            <template #checkedChildren>
+              <UnlockOutlined />
+            </template>
+            <template #unCheckedChildren>
+              <LockOutlined />
+            </template>
+          </a-switch>
+        </div>
+      </div>
+
+      <a-alert
+        v-if="matchPromptEditing"
+        type="warning"
+        show-icon
+        banner
+        class="settings-panel__prompt-warning"
+      >
+        <template #icon>
+          <WarningOutlined />
+        </template>
+        <template #message>
+          Editing this prompt may affect how honestly and consistently match
+          scores are calculated. Keep the 0–10 scale and practical hiring focus.
+        </template>
+      </a-alert>
+
+      <a-form-item name="matchAssessmentPrompt" class="settings-panel__prompt-item">
+        <a-textarea
+          v-model:value="form.matchAssessmentPrompt"
+          :disabled="!matchPromptEditing"
+          :rows="10"
+          class="settings-panel__prompt-textarea"
+          :class="{ 'settings-panel__prompt-textarea--locked': !matchPromptEditing }"
+        />
+      </a-form-item>
+
+      <a-button
+        v-if="matchPromptEditing"
+        size="small"
+        class="settings-panel__reset-btn"
+        @click="resetMatchPrompt"
       >
         Reset to default
       </a-button>
@@ -274,6 +411,12 @@ function resetPrompt() {
 
 .settings-panel__prompt-warning {
   margin-bottom: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.settings-panel__tokens-hint {
+  margin-bottom: 12px;
   border-radius: 8px;
   font-size: 12px;
 }

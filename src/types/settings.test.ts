@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_MATCH_ASSESSMENT_PROMPT,
+  DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_SETTINGS,
   DEFAULT_SYSTEM_PROMPT,
+  MAX_OUTPUT_TOKENS_HINT,
   PRESET_MODELS,
   type ExtensionSettings,
 } from './settings'
@@ -20,8 +23,19 @@ describe('DEFAULT_SETTINGS', () => {
       'openAiApiUrl',
       'model',
       'cvFilePath',
+      'cvContent',
       'themeMode',
       'systemPrompt',
+      'matchAssessmentPrompt',
+      'avatarFilePath',
+      'avatarDataUrl',
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'linkedIn',
+      'telegram',
+      'website',
     ]
 
     for (const key of keys) {
@@ -29,15 +43,38 @@ describe('DEFAULT_SETTINGS', () => {
     }
   })
 
+  it('defaults max output tokens to 4096', () => {
+    expect(DEFAULT_SETTINGS.maxOutputTokens).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
+    expect(DEFAULT_MAX_OUTPUT_TOKENS).toBe(4096)
+  })
+
+  it('has a helpful max tokens hint message', () => {
+    expect(MAX_OUTPUT_TOKENS_HINT).toContain('4096')
+    expect(MAX_OUTPUT_TOKENS_HINT).toContain('8192')
+  })
+
   it('starts with empty user-provided values', () => {
     expect(DEFAULT_SETTINGS.openAiApiKey).toBe('')
     expect(DEFAULT_SETTINGS.coverLetter).toBe('')
     expect(DEFAULT_SETTINGS.cvFilePath).toBe('')
+    expect(DEFAULT_SETTINGS.cvContent).toBe('')
   })
 
-  it('has a non-empty system prompt by default', () => {
+  it('defaults match evaluation model to gpt-4o-mini', () => {
+    expect(DEFAULT_SETTINGS.matchAssessmentModel).toBe('gpt-4o-mini-2024-07-18')
+  })
+
+  it('has a non-empty CV generation prompt by default', () => {
     expect(DEFAULT_SETTINGS.systemPrompt).toBe(DEFAULT_SYSTEM_PROMPT)
     expect(DEFAULT_SETTINGS.systemPrompt.length).toBeGreaterThan(100)
+    expect(DEFAULT_SYSTEM_PROMPT).toContain('Do not generate a cover letter')
+  })
+
+  it('has a non-empty match assessment prompt by default', () => {
+    expect(DEFAULT_SETTINGS.matchAssessmentPrompt).toBe(
+      DEFAULT_MATCH_ASSESSMENT_PROMPT,
+    )
+    expect(DEFAULT_MATCH_ASSESSMENT_PROMPT).toContain('Overall Match Score')
   })
 })
 
