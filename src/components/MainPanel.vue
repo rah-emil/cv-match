@@ -5,6 +5,7 @@ import {
   CheckOutlined,
   CopyOutlined,
   DownloadOutlined,
+  EditOutlined,
   FilePdfOutlined,
   FileTextOutlined,
   FormOutlined,
@@ -12,7 +13,7 @@ import {
 import { message } from 'ant-design-vue'
 import type { ExtensionSettings } from '../types/settings'
 import { downloadCvPdf } from '../services/cvPdf'
-import { evaluateMatch, generateCv } from '../services/openai'
+import { evaluateMatch, generateCoverLetter, generateCv } from '../services/openai'
 import {
   extractAutofillProfile,
   getMissingRequiredProfileFields,
@@ -30,12 +31,15 @@ const props = defineProps<{
 }>()
 
 const generating = ref(false)
+const generatingCoverLetter = ref(false)
 const evaluating = ref(false)
 const filling = ref(false)
 const cvResult = ref('')
+const coverLetterResult = ref('')
 const matchResult = ref('')
 const matchScore = ref<MatchScorePresentation | null>(null)
 const copiedCv = ref(false)
+const copiedCoverLetter = ref(false)
 const downloadingPdf = ref(false)
 const error = ref('')
 
@@ -113,6 +117,42 @@ async function handleEvaluateMatch() {
   } finally {
     evaluating.value = false
   }
+}
+
+async function handleGenerateCoverLetter() {
+  if (!validatePrerequisites()) return
+
+  generatingCoverLetter.value = true
+  coverLetterResult.value = ''
+  error.value = ''
+
+  try {
+    const jobText = await extractJobTextFromPage()
+    message.info('Writing your cover letter...')
+
+    const generated = await generateCoverLetter({
+      settings: props.settings,
+      jobText,
+    })
+
+    coverLetterResult.value = generated
+    message.success('Cover letter ready — copy below')
+  } catch (e) {
+    const msg = (e as Error).message
+    error.value = msg
+    message.error(msg)
+  } finally {
+    generatingCoverLetter.value = false
+  }
+}
+
+async function handleCopyCoverLetter() {
+  await navigator.clipboard.writeText(coverLetterResult.value)
+  copiedCoverLetter.value = true
+  message.success('Copied to clipboard')
+  setTimeout(() => {
+    copiedCoverLetter.value = false
+  }, 2000)
 }
 
 async function handleGenerateCv() {
@@ -226,11 +266,10 @@ async function handleAutoFillForm() {
 <template>
   <div class="main-panel">
     <div class="main-panel__hero">
-      <div class="main-panel__badge">AI Match</div>
       <h2 class="main-panel__title">Prepare your application</h2>
       <p class="main-panel__subtitle">
-        Open a job posting, evaluate your fit, then generate a tailored CV when
-        it makes sense to apply.
+        Open a job posting, evaluate your fit, then generate a tailored CV and
+        cover letter when it makes sense to apply.
       </p>
     </div>
 
@@ -265,6 +304,19 @@ async function handleAutoFillForm() {
       <a-button
         size="large"
         block
+        :loading="generatingCoverLetter"
+        class="main-panel__button main-panel__button--cover-letter"
+        @click="handleGenerateCoverLetter"
+      >
+        <template #icon>
+          <EditOutlined />
+        </template>
+        {{ generatingCoverLetter ? 'Writing...' : 'Generate cover letter' }}
+      </a-button>
+
+      <a-button
+        size="large"
+        block
         :loading="filling"
         class="main-panel__button main-panel__button--secondary"
         @click="handleAutoFillForm"
@@ -277,7 +329,7 @@ async function handleAutoFillForm() {
     </div>
 
     <a-alert
-      v-if="error && !generating && !evaluating"
+      v-if="error && !generating && !generatingCoverLetter && !evaluating"
       type="error"
       show-icon
       closable
@@ -306,6 +358,22 @@ async function handleAutoFillForm() {
 
       <div class="main-panel__match-body">
         <MarkdownContent :source="matchResultBody" />
+      </div>
+    </div>
+
+    <div v-if="coverLetterResult" class="main-panel__result">
+      <div class="main-panel__result-header">
+        <span class="main-panel__result-title">Cover letter</span>
+        <a-button size="small" @click="handleCopyCoverLetter">
+          <template #icon>
+            <CheckOutlined v-if="copiedCoverLetter" />
+            <CopyOutlined v-else />
+          </template>
+          {{ copiedCoverLetter ? 'Copied' : 'Copy' }}
+        </a-button>
+      </div>
+      <div class="main-panel__result-body main-panel__result-body--prose">
+        <MarkdownContent :source="coverLetterResult" />
       </div>
     </div>
 
@@ -410,6 +478,18 @@ async function handleAutoFillForm() {
 
 .main-panel__button--primary {
   box-shadow: 0 8px 20px rgba(47, 84, 235, 0.25);
+}
+
+.main-panel__button--cover-letter {
+  border-color: var(--cover-letter-btn-border, #91caff);
+  background: var(--cover-letter-btn-bg, #e6f4ff);
+  color: var(--cover-letter-btn-text, #0958d9);
+}
+
+.main-panel__button--cover-letter:hover {
+  border-color: var(--cover-letter-btn-hover-border, #69b1ff) !important;
+  background: var(--cover-letter-btn-hover-bg, #d6ebff) !important;
+  color: var(--cover-letter-btn-hover-text, #003eb3) !important;
 }
 
 .main-panel__button--secondary {
@@ -522,5 +602,10 @@ async function handleAutoFillForm() {
   font-size: 13px;
   line-height: 1.6;
   color: var(--result-text, rgba(0, 0, 0, 0.85));
+}
+
+.main-panel__result-body--prose {
+  font-size: 13px;
+  line-height: 1.65;
 }
 </style>

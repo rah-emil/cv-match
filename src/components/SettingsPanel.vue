@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons-vue'
 import ThemePicker from './ThemePicker.vue'
 import {
+  DEFAULT_COVER_LETTER_PROMPT,
   DEFAULT_MATCH_ASSESSMENT_PROMPT,
   DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_SYSTEM_PROMPT,
@@ -30,6 +31,7 @@ const emit = defineEmits<{
 const form = reactive<ExtensionSettings>({ ...props.settings })
 const cvPromptEditing = ref(false)
 const matchPromptEditing = ref(false)
+const coverLetterPromptEditing = ref(false)
 const maxTokensChanged = ref(false)
 
 const showMaxTokensHint = computed(
@@ -75,6 +77,17 @@ function resetCvPrompt() {
 
 function resetMatchPrompt() {
   form.matchAssessmentPrompt = DEFAULT_MATCH_ASSESSMENT_PROMPT
+}
+
+function toggleCoverLetterPromptEditing(val: boolean) {
+  coverLetterPromptEditing.value = val
+  if (!val) {
+    form.coverLetterPrompt = props.settings.coverLetterPrompt
+  }
+}
+
+function resetCoverLetterPrompt() {
+  form.coverLetterPrompt = DEFAULT_COVER_LETTER_PROMPT
 }
 
 function handleMaxTokensChange() {
@@ -336,6 +349,84 @@ function handleMaxTokensChange() {
         size="small"
         class="settings-panel__reset-btn"
         @click="resetMatchPrompt"
+      >
+        Reset to default
+      </a-button>
+    </div>
+
+    <a-divider class="settings-panel__divider" />
+
+    <!-- Cover letter prompt -->
+    <div class="settings-panel__group">
+      <div class="settings-panel__label-row">
+        <span class="settings-panel__label">Cover letter prompt</span>
+        <div class="settings-panel__prompt-controls">
+          <a-tooltip
+            v-if="!coverLetterPromptEditing"
+            title="Unlock to edit the cover letter prompt"
+          >
+            <a-switch
+              :checked="coverLetterPromptEditing"
+              size="small"
+              :checked-children="null"
+              :un-checked-children="null"
+              @change="toggleCoverLetterPromptEditing"
+            >
+              <template #checkedChildren>
+                <UnlockOutlined />
+              </template>
+              <template #unCheckedChildren>
+                <LockOutlined />
+              </template>
+            </a-switch>
+          </a-tooltip>
+          <a-switch
+            v-else
+            :checked="coverLetterPromptEditing"
+            size="small"
+            @change="toggleCoverLetterPromptEditing"
+          >
+            <template #checkedChildren>
+              <UnlockOutlined />
+            </template>
+            <template #unCheckedChildren>
+              <LockOutlined />
+            </template>
+          </a-switch>
+        </div>
+      </div>
+
+      <a-alert
+        v-if="coverLetterPromptEditing"
+        type="warning"
+        show-icon
+        banner
+        class="settings-panel__prompt-warning"
+      >
+        <template #icon>
+          <WarningOutlined />
+        </template>
+        <template #message>
+          Editing this prompt may affect tone and length of generated cover
+          letters. Keep it concise, honest, and free of clichés.
+        </template>
+      </a-alert>
+
+      <a-form-item name="coverLetterPrompt" class="settings-panel__prompt-item">
+        <a-textarea
+          v-model:value="form.coverLetterPrompt"
+          :disabled="!coverLetterPromptEditing"
+          :rows="10"
+          class="settings-panel__prompt-textarea"
+          :class="{ 'settings-panel__prompt-textarea--locked': !coverLetterPromptEditing }"
+        />
+      </a-form-item>
+
+      <a-button
+        v-if="coverLetterPromptEditing"
+        size="small"
+        class="settings-panel__reset-btn"
+        @click="resetCoverLetterPrompt"
       >
         Reset to default
       </a-button>

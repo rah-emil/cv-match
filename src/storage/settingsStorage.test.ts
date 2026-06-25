@@ -44,6 +44,7 @@ describe('settingsStorage', () => {
       themeMode: 'dark',
       systemPrompt: 'Custom prompt text',
       matchAssessmentPrompt: 'Custom match prompt',
+      coverLetterPrompt: 'Custom cover letter prompt',
       maxOutputTokens: 8192,
       avatarFilePath: 'avatar.png',
       avatarDataUrl: 'data:image/png;base64,abc',

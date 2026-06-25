@@ -38,6 +38,12 @@ body {
   --evaluate-btn-hover-bg: #1a2a14;
   --evaluate-btn-hover-border: #3f6600;
   --evaluate-btn-hover-text: #b7eb8f;
+  --cover-letter-btn-bg: #111d2c;
+  --cover-letter-btn-border: #15325b;
+  --cover-letter-btn-text: #69b1ff;
+  --cover-letter-btn-hover-bg: #152238;
+  --cover-letter-btn-hover-border: #1668dc;
+  --cover-letter-btn-hover-text: #91caff;
 }
 
 .popup--light {
@@ -66,6 +72,12 @@ body {
   --evaluate-btn-hover-bg: #eef9e6;
   --evaluate-btn-hover-border: #95de64;
   --evaluate-btn-hover-text: #237804;
+  --cover-letter-btn-bg: #e6f4ff;
+  --cover-letter-btn-border: #91caff;
+  --cover-letter-btn-text: #0958d9;
+  --cover-letter-btn-hover-bg: #d6ebff;
+  --cover-letter-btn-hover-border: #69b1ff;
+  --cover-letter-btn-hover-text: #003eb3;
 }
 
 /* Match score card — light theme */

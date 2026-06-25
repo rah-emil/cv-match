@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_COVER_LETTER_PROMPT,
   DEFAULT_MATCH_ASSESSMENT_PROMPT,
   DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_SETTINGS,
@@ -27,6 +28,7 @@ describe('DEFAULT_SETTINGS', () => {
       'themeMode',
       'systemPrompt',
       'matchAssessmentPrompt',
+      'coverLetterPrompt',
       'avatarFilePath',
       'avatarDataUrl',
       'firstName',
@@ -62,6 +64,11 @@ describe('DEFAULT_SETTINGS', () => {
 
   it('defaults match evaluation model to gpt-4o-mini', () => {
     expect(DEFAULT_SETTINGS.matchAssessmentModel).toBe('gpt-4o-mini-2024-07-18')
+  })
+
+  it('has a default cover letter prompt', () => {
+    expect(DEFAULT_SETTINGS.coverLetterPrompt).toBe(DEFAULT_COVER_LETTER_PROMPT)
+    expect(DEFAULT_COVER_LETTER_PROMPT).toContain('150–220 words')
   })
 
   it('has a non-empty CV generation prompt by default', () => {

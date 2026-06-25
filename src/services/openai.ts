@@ -10,6 +10,11 @@ export interface EvaluateMatchRequest {
   jobText: string
 }
 
+export interface GenerateCoverLetterRequest {
+  settings: ExtensionSettings
+  jobText: string
+}
+
 export interface OpenAiMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
@@ -101,11 +106,47 @@ export async function evaluateMatch(req: EvaluateMatchRequest): Promise<string> 
   )
 }
 
+export async function generateCoverLetter(
+  req: GenerateCoverLetterRequest,
+): Promise<string> {
+  const { settings, jobText } = req
+
+  return completeChat(settings, [
+    { role: 'system', content: settings.coverLetterPrompt },
+    { role: 'user', content: buildCoverLetterUserMessage(settings, jobText) },
+  ])
+}
+
+function buildContactDetailsSection(settings: ExtensionSettings): string {
+  const lines: string[] = []
+
+  const fullName = [settings.firstName, settings.lastName]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' ')
+
+  if (fullName) lines.push(`Name: ${fullName}`)
+  if (settings.email.trim()) lines.push(`Email: ${settings.email.trim()}`)
+  if (settings.phone.trim()) lines.push(`Phone: ${settings.phone.trim()}`)
+  if (settings.linkedIn.trim()) lines.push(`LinkedIn: ${settings.linkedIn.trim()}`)
+  if (settings.telegram.trim()) lines.push(`Telegram: ${settings.telegram.trim()}`)
+  if (settings.website.trim()) lines.push(`Website: ${settings.website.trim()}`)
+
+  if (lines.length === 0) {
+    return '(no contact details in profile — use what is available in the CV)'
+  }
+
+  return lines.join('\n')
+}
+
 function buildBaseUserMessage(settings: ExtensionSettings, jobText: string): string {
   const parts: string[] = []
 
   parts.push('=== JOB DESCRIPTION ===')
   parts.push(jobText)
+
+  parts.push('\n=== CONTACT DETAILS ===')
+  parts.push(buildContactDetailsSection(settings))
 
   parts.push('\n=== MY CV ===')
   if (settings.cvContent.trim()) {
@@ -148,9 +189,27 @@ export function buildMatchAssessmentUserMessage(
   parts.push(
     'Start with a line exactly in this format: Overall Match Score: X/10',
     'Where X is your numeric score from 0 to 10 (decimals allowed, e.g. 7.5/10).',
-    'Then provide the full assessment using numbered sections 2–7 from the system instructions.',
-    'Use clear Markdown headings (##) and bullet points (-).',
+    'Then provide only 3–6 short Markdown bullet points.',
+    'If the candidate does not fit, focus only on why not.',
+    'If the candidate almost fits, focus only on mismatch areas and missing signals.',
+    'If the candidate fits well, give one short reason why and do not list obvious strengths.',
     'Do not wrap the output in a code block.',
+  )
+
+  return parts.join('\n')
+}
+
+export function buildCoverLetterUserMessage(
+  settings: ExtensionSettings,
+  jobText: string,
+): string {
+  const parts = [buildBaseUserMessage(settings, jobText)]
+
+  parts.push('\n=== OUTPUT FORMAT ===')
+  parts.push(
+    'Return only the cover letter text as plain prose.',
+    'Do not include a subject line, email headers, or Markdown code blocks.',
+    'Use normal paragraphs separated by blank lines.',
   )
 
   return parts.join('\n')

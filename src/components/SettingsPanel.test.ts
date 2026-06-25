@@ -2,6 +2,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import Antd from 'ant-design-vue'
 import {
+  DEFAULT_COVER_LETTER_PROMPT,
   DEFAULT_MATCH_ASSESSMENT_PROMPT,
   DEFAULT_SETTINGS,
   DEFAULT_SYSTEM_PROMPT,
@@ -34,6 +35,7 @@ describe('SettingsPanel', () => {
     expect(wrapper.text()).toContain('Get token')
     expect(wrapper.text()).toContain('CV generation prompt')
     expect(wrapper.text()).toContain('Match assessment prompt')
+    expect(wrapper.text()).toContain('Cover letter prompt')
     expect(wrapper.find('input[placeholder="sk-..."]').exists()).toBe(true)
     expect(
       wrapper.find('input[placeholder="https://api.openai.com/v1"]').exists(),
@@ -84,7 +86,7 @@ describe('SettingsPanel', () => {
     const wrapper = mountSettingsPanel()
     const textareas = wrapper.findAll('textarea.settings-panel__prompt-textarea')
 
-    expect(textareas).toHaveLength(2)
+    expect(textareas).toHaveLength(3)
     expect(textareas[0].attributes('disabled')).toBeDefined()
     expect(textareas[1].attributes('disabled')).toBeDefined()
   })
@@ -114,6 +116,7 @@ describe('SettingsPanel', () => {
       openAiApiKey: 'sk-test-key',
       systemPrompt: DEFAULT_SYSTEM_PROMPT,
       matchAssessmentPrompt: DEFAULT_MATCH_ASSESSMENT_PROMPT,
+      coverLetterPrompt: DEFAULT_COVER_LETTER_PROMPT,
     })
   })
 
@@ -134,6 +137,7 @@ describe('SettingsPanel', () => {
         themeMode: 'dark',
         systemPrompt: DEFAULT_SYSTEM_PROMPT,
         matchAssessmentPrompt: DEFAULT_MATCH_ASSESSMENT_PROMPT,
+        coverLetterPrompt: DEFAULT_COVER_LETTER_PROMPT,
       },
       true,
     )

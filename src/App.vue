@@ -34,7 +34,7 @@ async function handleSave(nextSettings: ExtensionSettings, silent = false) {
   <a-config-provider :theme="antTheme">
     <div class="popup" :class="isDark ? 'popup--dark' : 'popup--light'">
       <header class="popup__header">
-        <img src="/logo.png" alt="AI Match" class="popup__logo" />
+        <img src="/CV-Match-Logo.svg" alt="CV Match" class="popup__logo" />
       </header>
 
       <a-spin :spinning="loading">

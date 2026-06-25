@@ -12,4 +12,14 @@ describe('cvDocument template', () => {
     expect(html).toContain('<h2>Summary</h2>')
     expect(html).toContain('<li>Engineer</li>')
   })
+
+  it('renders avatar as a cover background to avoid distortion', () => {
+    const html = renderCvDocumentHtml('# Jane Doe', {
+      avatarDataUrl: 'data:image/png;base64,abc',
+    })
+
+    expect(html).toContain('class="cv-doc__avatar"')
+    expect(html).toContain("background-image: url('data:image/png;base64,abc')")
+    expect(html).not.toContain('<img class="cv-doc__avatar"')
+  })
 })

@@ -36,8 +36,10 @@ export const CV_TEMPLATE_STYLES = `
     width: 88px;
     height: 88px;
     border-radius: 50%;
-    object-fit: cover;
     border: 3px solid #eef2ff;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
     flex-shrink: 0;
   }
 
@@ -113,7 +115,7 @@ export function renderCvDocumentHtml(
 ): string {
   const bodyHtml = marked.parse(markdown, { async: false }) as string
   const avatarHtml = options.avatarDataUrl
-    ? `<img class="cv-doc__avatar" src="${options.avatarDataUrl}" alt="" />`
+    ? `<div class="cv-doc__avatar" style="background-image: url('${options.avatarDataUrl}')"></div>`
     : ''
 
   return `

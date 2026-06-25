@@ -33,12 +33,19 @@ const FIELD_TOKENS: Record<ProfileFieldKey, string[]> = {
   email: ['email', 'emailaddress', 'e-mail', 'mail'],
   phone: ['phone', 'tel', 'mobile', 'telephone', 'cellphone', 'phonenumber'],
   linkedIn: ['linkedin', 'linkedinprofile', 'linkedinurl'],
-  telegram: ['telegram', 'telegramusername', 'tg'],
+  telegram: ['telegram', 'telegramusername', 'tg', 'telegramhandle'],
   website: ['website', 'portfolio', 'personalsite', 'homepage', 'siteurl'],
 }
 
 export function normalizeProfileFieldKey(raw: string): string {
   return raw.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function partMatchesToken(part: string, token: string): boolean {
+  if (part === token) return true
+  // Short tokens like "tel" or "tg" must not match inside "telegram".
+  if (token.length <= 3) return false
+  return part.includes(token)
 }
 
 export function matchInputToProfileField(parts: string[]): ProfileFieldKey | null {
@@ -52,7 +59,7 @@ export function matchInputToProfileField(parts: string[]): ProfileFieldKey | nul
   ][]) {
     if (
       normalized.some((part) =>
-        tokens.some((token) => part === token || part.includes(token)),
+        tokens.some((token) => partMatchesToken(part, token)),
       )
     ) {
       return field
@@ -78,6 +85,20 @@ export function normalizeWebsite(value: string): string {
   return `https://${trimmed}`
 }
 
+export function formatTelegramForForm(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  if (trimmed.startsWith('@')) return trimmed
+
+  const tMeMatch = trimmed.match(/(?:https?:\/\/)?(?:www\.)?t\.me\/([^/?#]+)/i)
+  if (tMeMatch) return `@${tMeMatch[1]}`
+
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+
+  return `@${trimmed.replace(/^@/, '')}`
+}
+
 export function normalizeTelegram(value: string): string {
   const trimmed = value.trim()
   if (!trimmed) return ''
@@ -95,7 +116,7 @@ export function buildAutofillValues(
     email: profile.email.trim(),
     phone: profile.phone.trim(),
     linkedIn: profile.linkedIn.trim() ? normalizeLinkedIn(profile.linkedIn) : '',
-    telegram: profile.telegram.trim() ? normalizeTelegram(profile.telegram) : '',
+    telegram: profile.telegram.trim() ? formatTelegramForForm(profile.telegram) : '',
     website: profile.website.trim() ? normalizeWebsite(profile.website) : '',
   }
 }

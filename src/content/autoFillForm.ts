@@ -4,36 +4,11 @@ import {
   type ProfileAutofillData,
   type ProfileFieldKey,
 } from '../utils/autoFillProfile'
+import { collectAutofillSignalTexts } from '../utils/collectAutofillSignals'
 
 export interface AutofillResult {
   filledCount: number
   filledFields: ProfileFieldKey[]
-}
-
-function collectInputSignals(element: HTMLInputElement | HTMLTextAreaElement): string[] {
-  const parts: string[] = []
-
-  if (element.name) parts.push(element.name)
-  if (element.id) parts.push(element.id)
-  if (element.autocomplete) parts.push(element.autocomplete)
-  if (element.placeholder) parts.push(element.placeholder)
-  if (element.getAttribute('aria-label')) {
-    parts.push(element.getAttribute('aria-label')!)
-  }
-  if (element.getAttribute('data-testid')) {
-    parts.push(element.getAttribute('data-testid')!)
-  }
-
-  const doc = element.ownerDocument
-  if (element.id) {
-    const label = doc.querySelector(`label[for="${CSS.escape(element.id)}"]`)
-    if (label?.textContent) parts.push(label.textContent)
-  }
-
-  const parentLabel = element.closest('label')
-  if (parentLabel?.textContent) parts.push(parentLabel.textContent)
-
-  return parts
 }
 
 function isFillableInput(
@@ -83,7 +58,7 @@ export function autoFillFormFields(profile: ProfileAutofillData): AutofillResult
     if (!isFillableInput(element)) continue
     if (element.value.trim()) continue
 
-    const field = matchInputToProfileField(collectInputSignals(element))
+    const field = matchInputToProfileField(collectAutofillSignalTexts(element))
     if (!field) continue
 
     const value = values[field]

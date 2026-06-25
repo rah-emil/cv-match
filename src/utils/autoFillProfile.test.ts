@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   buildAutofillValues,
   extractAutofillProfile,
+  formatTelegramForForm,
   getMissingRequiredProfileFields,
   matchInputToProfileField,
   normalizeLinkedIn,
-  normalizeTelegram,
 } from './autoFillProfile'
 
 describe('autoFillProfile', () => {
@@ -42,8 +42,14 @@ describe('autoFillProfile', () => {
     })
 
     expect(values.linkedIn).toBe('https://www.linkedin.com/in/janedoe')
-    expect(values.telegram).toBe('https://t.me/jane')
+    expect(values.telegram).toBe('@jane')
     expect(values.website).toBe('https://janedoe.dev')
+  })
+
+  it('formats telegram for text inputs', () => {
+    expect(formatTelegramForForm('jane')).toBe('@jane')
+    expect(formatTelegramForForm('https://t.me/jane')).toBe('@jane')
+    expect(formatTelegramForForm('@jane')).toBe('@jane')
   })
 
   it('extracts autofill payload from settings', () => {
@@ -53,7 +59,7 @@ describe('autoFillProfile', () => {
       email: 'jane@example.com',
       phone: '+1 555',
       linkedIn: normalizeLinkedIn('linkedin.com/in/jane'),
-      telegram: normalizeTelegram('@jane'),
+      telegram: '@jane',
       website: 'https://jane.dev',
     })
 

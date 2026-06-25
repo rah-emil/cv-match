@@ -1,10 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { DEFAULT_SETTINGS, DEFAULT_MATCH_ASSESSMENT_PROMPT, DEFAULT_SYSTEM_PROMPT } from '../types/settings'
+import { DEFAULT_SETTINGS, DEFAULT_COVER_LETTER_PROMPT, DEFAULT_MATCH_ASSESSMENT_PROMPT, DEFAULT_SYSTEM_PROMPT } from '../types/settings'
 import {
   generateCv,
   evaluateMatch,
+  generateCoverLetter,
   buildUserMessage,
   buildMatchAssessmentUserMessage,
+  buildCoverLetterUserMessage,
   buildCompletionBody,
   usesMaxCompletionTokens,
 } from './openai'
@@ -25,6 +27,7 @@ describe('openai service', () => {
       const msg = buildUserMessage(settings, 'Looking for a React developer')
 
       expect(msg).toContain('=== JOB DESCRIPTION ===')
+      expect(msg).toContain('=== CONTACT DETAILS ===')
       expect(msg).toContain('Looking for a React developer')
       expect(msg).toContain('=== MY CV ===')
       expect(msg).toContain('Senior engineer with 10 years experience')
@@ -251,6 +254,71 @@ describe('openai service', () => {
         messages: { role: string; content: string }[]
       }
       expect(body.messages[0].content).toBe(DEFAULT_MATCH_ASSESSMENT_PROMPT)
+    })
+  })
+
+  describe('buildCoverLetterUserMessage', () => {
+    it('includes contact details and plain prose output format', () => {
+      const msg = buildCoverLetterUserMessage(
+        {
+          ...DEFAULT_SETTINGS,
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@example.com',
+          cvContent: 'My CV',
+        },
+        'Job text',
+      )
+
+      expect(msg).toContain('=== CONTACT DETAILS ===')
+      expect(msg).toContain('Name: Jane Doe')
+      expect(msg).toContain('cover letter text as plain prose')
+    })
+  })
+
+  describe('generateCoverLetter', () => {
+    it('uses coverLetterPrompt as system message', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: 'Dear hiring manager...' } }],
+          }),
+      })
+      globalThis.fetch = fetchMock
+
+      const settings = {
+        ...DEFAULT_SETTINGS,
+        openAiApiKey: 'sk-test-key',
+        coverLetterPrompt: 'Custom cover letter prompt',
+        cvContent: 'My CV',
+      }
+
+      const result = await generateCoverLetter({ settings, jobText: 'Need a developer' })
+
+      expect(result).toBe('Dear hiring manager...')
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        messages: { role: string; content: string }[]
+      }
+      expect(body.messages[0].content).toBe('Custom cover letter prompt')
+    })
+
+    it('uses DEFAULT_COVER_LETTER_PROMPT when settings has default', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
+      })
+      globalThis.fetch = fetchMock
+
+      await generateCoverLetter({
+        settings: { ...DEFAULT_SETTINGS, openAiApiKey: 'sk-test', cvContent: 'CV' },
+        jobText: 'Job',
+      })
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        messages: { role: string; content: string }[]
+      }
+      expect(body.messages[0].content).toBe(DEFAULT_COVER_LETTER_PROMPT)
     })
   })
 })

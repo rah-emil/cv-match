@@ -11,6 +11,7 @@ export interface ExtensionSettings {
   themeMode: ThemeMode
   systemPrompt: string
   matchAssessmentPrompt: string
+  coverLetterPrompt: string
   maxOutputTokens: number
   avatarFilePath: string
   avatarDataUrl: string
@@ -47,13 +48,15 @@ Before writing the final version, internally compare my profile against the vaca
 
 export const DEFAULT_MATCH_ASSESSMENT_PROMPT = `Analyze my original CV, contact details, and the full job description. Evaluate how well my profile matches this specific vacancy.
 
-Your task is not to generate a CV or cover letter. Your task is to provide an honest, practical match assessment that helps me understand whether I am a strong candidate and what I should improve before applying.
+Your task is not to generate a CV or cover letter. Your task is to give a very short, practical hiring-relevance verdict.
 
-First, identify the key requirements of the role: job title, seniority level, core responsibilities, must-have skills, nice-to-have skills, required technologies, domain experience, leadership expectations, soft skills, language requirements, and expected business outcomes.
+Do not repeat what I already know how to do. Do not list my strengths unless they are needed to explain why I am a good match. Focus on gaps, mismatch, and whether applying makes sense.
 
-Then compare these requirements against my real CV and provide:
+First, internally identify the key requirements of the role: seniority level, core responsibilities, must-have skills, required technologies, domain experience, leadership expectations, language requirements, and expected business outcomes.
 
-1. Overall Match Score: give a score from 0 to 10, where:
+Then compare these requirements against my real CV and give:
+
+1. Overall Match Score: a score from 0 to 10, where:
 
 * 9–10 means excellent match with only minor gaps
 * 7–8 means strong match but with some noticeable gaps
@@ -61,19 +64,25 @@ Then compare these requirements against my real CV and provide:
 * 3–4 means weak match with major gaps
 * 0–2 means not suitable for this role
 
-2. Short Verdict: explain in 2–4 sentences whether I should apply and why.
+2. Verdict:
 
-3. Strong Match Areas: list the parts of my background that clearly match the vacancy, such as relevant roles, leadership experience, technical skills, domain knowledge, achievements, scale, ownership, or business impact.
+* If I clearly do not fit: say briefly why I do not fit.
+* If I fit well: say briefly why I fit.
+* If I almost fit or partially fit: list only the mismatch areas and missing signals.
 
-4. Weak Match Areas / Risks: list the gaps, missing experience, weak signals, or possible concerns a recruiter, hiring manager, ATS system, or company owner may notice.
+Keep the response very short: 3–6 bullet points maximum after the score. Be direct, specific, and simple. Do not include long explanations, praise, generic advice, CV rewriting tips, interview preparation, or repeated descriptions of my strengths.
 
-5. Missing or Underrepresented Keywords: identify important keywords, skills, technologies, responsibilities, or domain terms from the job description that are missing or not clearly visible in my CV.
+Do not invent skills, achievements, employers, dates, technologies, certifications, or experience. If something is not proven by my CV, treat it as a gap or a missing signal.`
 
-6. CV Improvement Suggestions: explain what should be emphasized, reduced, renamed, reorganized, or rewritten in my CV to improve the match honestly without inventing facts.
+export const DEFAULT_COVER_LETTER_PROMPT = `Analyze my CV, contact details, and the full job description. Generate a short, tailored cover letter for this specific vacancy.
 
-7. Interview Preparation Focus: list the topics I should be ready to explain in an interview to compensate for gaps or strengthen my positioning.
+The cover letter must be concise, natural, and professional. Avoid generic phrases, clichés, exaggerated enthusiasm, and empty statements such as "I am passionate about", "I am the perfect fit", or "I am excited to apply".
 
-Be honest and specific. Do not exaggerate my fit. Do not invent skills, achievements, employers, dates, technologies, certifications, or experience I do not have. If something is not proven by my CV, mark it as a gap or as something that needs clarification. Focus on practical hiring relevance, ATS matching, recruiter perception, and whether my experience can realistically support this role.`
+Focus only on the strongest reasons why my real experience matches this role. Mention the company and role naturally, but do not over-personalize or repeat the job description. Highlight 2–3 relevant strengths from my CV, such as leadership, technical ownership, business impact, domain experience, team building, architecture, product delivery, or other skills that match the vacancy.
+
+Do not invent facts, achievements, technologies, employers, dates, or experience. If something is not clearly supported by my CV, do not include it.
+
+The final letter should be no longer than 150–220 words, easy to read, human-sounding, and suitable to send together with my CV.`
 
 export const PRESET_MODELS = [
   'gpt-5.5',
@@ -102,6 +111,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   themeMode: 'auto',
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   matchAssessmentPrompt: DEFAULT_MATCH_ASSESSMENT_PROMPT,
+  coverLetterPrompt: DEFAULT_COVER_LETTER_PROMPT,
   maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
   avatarFilePath: '',
   avatarDataUrl: '',
