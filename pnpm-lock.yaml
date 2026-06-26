@@ -11,6 +11,9 @@ importers:
       '@ant-design/icons-vue':
         specifier: ^7.0.1
         version: 7.0.1(vue@3.5.38(typescript@6.0.3))
+      '@expo-google-fonts/roboto':
+        specifier: ^0.4.3
+        version: 0.4.3
       ant-design-vue:
         specifier: ^4.2.6
         version: 4.2.6(vue@3.5.38(typescript@6.0.3))
@@ -124,6 +127,9 @@ packages:
 
   '@emotion/unitless@0.8.1':
     resolution: {integrity: sha512-KOEGMu6dmJZtpadb476IsZBclKvILjopjUii3V+7MnXIQCYh8W3NgNcgwo21n9LXZX6EDIKvqfjYxXebDwxKmQ==}
+
+  '@expo-google-fonts/roboto@0.4.3':
+    resolution: {integrity: sha512-kX3wmpmu06fN1yOwYWMdjYJWNUYW6xUiAGeHbvPzzSEb3A3j23JelQ3tAgwQNKgEKRq6wtMmzixy2r7y9c8dsA==}
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -1354,6 +1360,8 @@ snapshots:
   '@emotion/hash@0.9.2': {}
 
   '@emotion/unitless@0.8.1': {}
+
+  '@expo-google-fonts/roboto@0.4.3': {}
 
   '@isaacs/cliui@8.0.2':
     dependencies:

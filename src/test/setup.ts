@@ -44,7 +44,12 @@ globalThis.chrome = {
   },
   tabs: {
     query: vi.fn(async () => [{ id: 1 }]),
-    sendMessage: vi.fn(async () => ({ text: 'Mock job text' })),
+    sendMessage: vi.fn(async (_tabId: number, message: { action?: string }) => {
+      if (message.action === 'getJobTextSelection') {
+        return { source: null, charCount: 0, pickerActive: false }
+      }
+      return { text: 'Mock job text', source: 'auto' }
+    }),
   },
   runtime: {
     onMessage: {

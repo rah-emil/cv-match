@@ -43,6 +43,7 @@ describe('MainPanel', () => {
   it('renders primary and secondary action buttons', () => {
     const wrapper = mountMainPanel()
 
+    expect(wrapper.text()).toContain('Select on page')
     expect(wrapper.text()).toContain('Evaluate match')
     expect(wrapper.text()).toContain('Generate CV')
     expect(wrapper.text()).toContain('Generate cover letter')

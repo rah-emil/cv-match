@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
+  AimOutlined,
   BarChartOutlined,
   CheckOutlined,
+  CloseOutlined,
   CopyOutlined,
   DownloadOutlined,
   EditOutlined,
@@ -13,6 +15,13 @@ import {
 import { message } from 'ant-design-vue'
 import type { ExtensionSettings } from '../types/settings'
 import { downloadCvPdf } from '../services/cvPdf'
+import {
+  clearJobTextSelectionOnPage,
+  extractJobTextFromActivePage,
+  queryJobTextSelection,
+  startJobTextPickerOnPage,
+  type JobTextSource,
+} from '../services/jobTextPage'
 import { buildCvExportBasename, buildCvExportFilename } from '../templates/cvDocument'
 import { evaluateMatch, generateCoverLetter, generateCv } from '../services/openai'
 import {
@@ -42,7 +51,95 @@ const matchScore = ref<MatchScorePresentation | null>(null)
 const copiedCv = ref(false)
 const copiedCoverLetter = ref(false)
 const downloadingPdf = ref(false)
+const selectingJobBlock = ref(false)
+const clearingJobBlock = ref(false)
+const jobTextSource = ref<JobTextSource>(null)
+const jobTextCharCount = ref(0)
+const jobTextPickerActive = ref(false)
 const error = ref('')
+
+const jobTextSelectionLabel = computed(() => {
+  if (jobTextPickerActive.value) {
+    return 'Click the job description on the page'
+  }
+
+  if (jobTextSource.value === 'manual') {
+    return `Selected block · ${jobTextCharCount.value.toLocaleString()} characters`
+  }
+
+  return 'Automatic page detection will be used'
+})
+
+async function refreshJobTextSelection() {
+  try {
+    const selection = await queryJobTextSelection()
+    jobTextSource.value = selection.source
+    jobTextCharCount.value = selection.charCount
+    jobTextPickerActive.value = selection.pickerActive
+  } catch {
+    jobTextSource.value = null
+    jobTextCharCount.value = 0
+    jobTextPickerActive.value = false
+  }
+}
+
+onMounted(() => {
+  void refreshJobTextSelection()
+  document.addEventListener('visibilitychange', handlePopupVisibilityChange)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handlePopupVisibilityChange)
+})
+
+function handlePopupVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    void refreshJobTextSelection()
+  }
+}
+
+async function extractJobTextFromPage(): Promise<string> {
+  const result = await extractJobTextFromActivePage()
+  jobTextSource.value = result.source
+  jobTextCharCount.value = result.text.length
+  jobTextPickerActive.value = false
+  return result.text
+}
+
+async function handleSelectJobBlockOnPage() {
+  selectingJobBlock.value = true
+  error.value = ''
+
+  try {
+    await startJobTextPickerOnPage()
+    await refreshJobTextSelection()
+  } catch (e) {
+    const msg = (e as Error).message
+    error.value = msg
+    message.error(msg)
+  } finally {
+    selectingJobBlock.value = false
+  }
+}
+
+async function handleClearJobBlockSelection() {
+  clearingJobBlock.value = true
+  error.value = ''
+
+  try {
+    await clearJobTextSelectionOnPage()
+    jobTextSource.value = null
+    jobTextCharCount.value = 0
+    jobTextPickerActive.value = false
+    message.success('Selection cleared')
+  } catch (e) {
+    const msg = (e as Error).message
+    error.value = msg
+    message.error(msg)
+  } finally {
+    clearingJobBlock.value = false
+  }
+}
 
 const matchScoreDisplay = computed(() => {
   if (!matchScore.value) return null
@@ -54,23 +151,6 @@ const matchScoreDisplay = computed(() => {
 })
 
 const matchResultBody = computed(() => stripScoreLine(matchResult.value))
-
-async function extractJobTextFromPage(): Promise<string> {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (!tab?.id) throw new Error('No active tab found')
-
-  const response = await chrome.tabs.sendMessage(tab.id, {
-    action: 'extractJobText',
-  })
-
-  if (!response?.error) {
-    if (response?.text?.trim()) return response.text
-  } else {
-    throw new Error(response.error)
-  }
-
-  throw new Error('Could not extract job text from the page')
-}
 
 function validatePrerequisites(): boolean {
   if (!props.settings.openAiApiKey.trim()) {
@@ -284,6 +364,38 @@ async function handleAutoFillForm() {
       </p>
     </div>
 
+    <div
+      class="main-panel__job-source"
+      :class="{
+        'main-panel__job-source--manual': jobTextSource === 'manual',
+        'main-panel__job-source--active': jobTextPickerActive,
+      }"
+    >
+      <div class="main-panel__job-source-copy">
+        <span class="main-panel__job-source-title">Job description source</span>
+        <span class="main-panel__job-source-label">{{ jobTextSelectionLabel }}</span>
+      </div>
+      <div class="main-panel__job-source-actions">
+        <a-button
+          size="small"
+          :loading="selectingJobBlock"
+          @click="handleSelectJobBlockOnPage"
+        >
+          <template #icon><AimOutlined /></template>
+          Select on page
+        </a-button>
+        <a-button
+          v-if="jobTextSource === 'manual' || jobTextPickerActive"
+          size="small"
+          :loading="clearingJobBlock"
+          @click="handleClearJobBlockSelection"
+        >
+          <template #icon><CloseOutlined /></template>
+          Clear
+        </a-button>
+      </div>
+    </div>
+
     <div class="main-panel__actions">
       <a-button
         size="large"
@@ -460,6 +572,52 @@ async function handleAutoFillForm() {
   color: var(--panel-subtitle, rgba(0, 0, 0, 0.45));
   font-size: 13px;
   line-height: 1.5;
+}
+
+.main-panel__job-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--result-border, #d9d9d9);
+  border-radius: 10px;
+  background: var(--result-header-bg, #fafafa);
+}
+
+.main-panel__job-source--manual {
+  border-color: var(--job-source-manual-border, #91caff);
+  background: var(--job-source-manual-bg, #e6f4ff);
+}
+
+.main-panel__job-source--active {
+  border-color: var(--job-source-active-border, #b7eb8f);
+  background: var(--job-source-active-bg, #f6ffed);
+}
+
+.main-panel__job-source-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.main-panel__job-source-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--result-title, rgba(0, 0, 0, 0.65));
+}
+
+.main-panel__job-source-label {
+  font-size: 12px;
+  color: var(--panel-subtitle, rgba(0, 0, 0, 0.45));
+}
+
+.main-panel__job-source-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .main-panel__actions {

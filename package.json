@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@expo-google-fonts/roboto": "^0.4.3",
     "ant-design-vue": "^4.2.6",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
