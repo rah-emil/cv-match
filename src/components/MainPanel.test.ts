@@ -22,7 +22,6 @@ vi.mock('ant-design-vue', async (importOriginal) => {
 vi.mock('../services/openai', () => ({
   generateCv: vi.fn(),
   evaluateMatch: vi.fn(),
-  generateCoverLetter: vi.fn(),
 }))
 
 function mountMainPanel(settings = DEFAULT_SETTINGS) {
@@ -46,7 +45,7 @@ describe('MainPanel', () => {
     expect(wrapper.text()).toContain('Select on page')
     expect(wrapper.text()).toContain('Evaluate match')
     expect(wrapper.text()).toContain('Generate CV')
-    expect(wrapper.text()).toContain('Generate cover letter')
+    expect(wrapper.text()).not.toContain('Generate cover letter')
     expect(wrapper.text()).toContain('Auto-fill form')
   })
 

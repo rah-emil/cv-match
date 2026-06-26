@@ -5,6 +5,7 @@ import {
   type CvDocumentOptions,
 } from '../templates/cvDocument'
 import { registerCvPdfFont } from './pdfFont'
+import { renderAvatarCoverDataUrl } from '../utils/avatarCoverImage'
 
 const PAGE_WIDTH_MM = 210
 const CONTENT_LEFT_MM = 18
@@ -15,6 +16,9 @@ const HEADER_TITLE_Y_MM = 9
 const HEADER_RULE_Y_MM = 12
 const FOOTER_Y_MM = 289
 
+const AVATAR_RENDER_PX = 176
+const AVATAR_BORDER_PX = 6
+const AVATAR_BORDER_COLOR = '#eef2ff'
 const AVATAR_SIZE_MM = 22
 const AVATAR_X_MM = CONTENT_RIGHT_MM - AVATAR_SIZE_MM
 const AVATAR_BAND_BOTTOM_MM = CONTENT_TOP_MM + AVATAR_SIZE_MM + 4
@@ -513,22 +517,17 @@ function renderTokens(ctx: RenderContext, tokens: unknown[]): void {
   }
 }
 
-function detectImageFormat(dataUrl: string): 'PNG' | 'JPEG' | 'WEBP' | null {
-  const match = /^data:image\/(png|jpe?g|webp)/i.exec(dataUrl)
-  if (!match) return null
-  const type = match[1].toLowerCase()
-  if (type === 'png') return 'PNG'
-  if (type === 'webp') return 'WEBP'
-  return 'JPEG'
-}
-
-function drawAvatar(ctx: RenderContext, dataUrl: string): void {
-  const format = detectImageFormat(dataUrl)
-  if (!format) return
+async function drawAvatar(ctx: RenderContext, dataUrl: string): Promise<void> {
   try {
-    ctx.pdf.addImage(
+    const rendered = await renderAvatarCoverDataUrl(
       dataUrl,
-      format,
+      AVATAR_RENDER_PX,
+      AVATAR_BORDER_PX,
+      AVATAR_BORDER_COLOR,
+    )
+    ctx.pdf.addImage(
+      rendered,
+      'PNG',
       AVATAR_X_MM,
       CONTENT_TOP_MM,
       AVATAR_SIZE_MM,
@@ -574,7 +573,7 @@ export async function downloadCvPdf(
 
   drawHeader(ctx)
   if (options.avatarDataUrl) {
-    drawAvatar(ctx, options.avatarDataUrl)
+    await drawAvatar(ctx, options.avatarDataUrl)
   }
 
   const tokens = marked.lexer(markdown)

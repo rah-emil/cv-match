@@ -7,7 +7,6 @@ import {
   CloseOutlined,
   CopyOutlined,
   DownloadOutlined,
-  EditOutlined,
   FilePdfOutlined,
   FileTextOutlined,
   FormOutlined,
@@ -23,7 +22,7 @@ import {
   type JobTextSource,
 } from '../services/jobTextPage'
 import { buildCvExportBasename, buildCvExportFilename } from '../templates/cvDocument'
-import { evaluateMatch, generateCoverLetter, generateCv } from '../services/openai'
+import { evaluateMatch, generateCv } from '../services/openai'
 import {
   extractAutofillProfile,
   getMissingRequiredProfileFields,
@@ -41,15 +40,16 @@ const props = defineProps<{
 }>()
 
 const generating = ref(false)
-const generatingCoverLetter = ref(false)
 const evaluating = ref(false)
 const filling = ref(false)
 const cvResult = ref('')
 const coverLetterResult = ref('')
+const matchComment = ref('')
 const matchResult = ref('')
 const matchScore = ref<MatchScorePresentation | null>(null)
 const copiedCv = ref(false)
 const copiedCoverLetter = ref(false)
+const copiedMatchComment = ref(false)
 const downloadingPdf = ref(false)
 const selectingJobBlock = ref(false)
 const clearingJobBlock = ref(false)
@@ -200,33 +200,6 @@ async function handleEvaluateMatch() {
   }
 }
 
-async function handleGenerateCoverLetter() {
-  if (!validatePrerequisites()) return
-
-  generatingCoverLetter.value = true
-  coverLetterResult.value = ''
-  error.value = ''
-
-  try {
-    const jobText = await extractJobTextFromPage()
-    message.info('Writing your cover letter...')
-
-    const generated = await generateCoverLetter({
-      settings: props.settings,
-      jobText,
-    })
-
-    coverLetterResult.value = generated
-    message.success('Cover letter ready — copy below')
-  } catch (e) {
-    const msg = (e as Error).message
-    error.value = msg
-    message.error(msg)
-  } finally {
-    generatingCoverLetter.value = false
-  }
-}
-
 async function handleCopyCoverLetter() {
   await navigator.clipboard.writeText(coverLetterResult.value)
   copiedCoverLetter.value = true
@@ -236,11 +209,22 @@ async function handleCopyCoverLetter() {
   }, 2000)
 }
 
+async function handleCopyMatchComment() {
+  await navigator.clipboard.writeText(matchComment.value)
+  copiedMatchComment.value = true
+  message.success('Copied to clipboard')
+  setTimeout(() => {
+    copiedMatchComment.value = false
+  }, 2000)
+}
+
 async function handleGenerateCv() {
   if (!validatePrerequisites()) return
 
   generating.value = true
   cvResult.value = ''
+  coverLetterResult.value = ''
+  matchComment.value = ''
   error.value = ''
 
   try {
@@ -252,7 +236,9 @@ async function handleGenerateCv() {
       jobText,
     })
 
-    cvResult.value = generated
+    cvResult.value = generated.cvContent
+    coverLetterResult.value = generated.coverLetter
+    matchComment.value = generated.matchComment
     message.success('CV generated — download PDF below')
   } catch (e) {
     const msg = (e as Error).message
@@ -359,8 +345,8 @@ async function handleAutoFillForm() {
     <div class="main-panel__hero">
       <h2 class="main-panel__title">Prepare your application</h2>
       <p class="main-panel__subtitle">
-        Open a job posting, evaluate your fit, then generate a tailored CV and
-        cover letter when it makes sense to apply.
+        Open a job posting, evaluate your fit, then generate a tailored CV with a
+        matching cover letter and fit notes in one click.
       </p>
     </div>
 
@@ -398,19 +384,6 @@ async function handleAutoFillForm() {
 
     <div class="main-panel__actions">
       <a-button
-        size="large"
-        block
-        :loading="evaluating"
-        class="main-panel__button main-panel__button--evaluate"
-        @click="handleEvaluateMatch"
-      >
-        <template #icon>
-          <BarChartOutlined />
-        </template>
-        {{ evaluating ? 'Evaluating...' : 'Evaluate match' }}
-      </a-button>
-
-      <a-button
         type="primary"
         size="large"
         block
@@ -424,35 +397,37 @@ async function handleAutoFillForm() {
         {{ generating ? 'Generating...' : 'Generate CV' }}
       </a-button>
 
-      <a-button
-        size="large"
-        block
-        :loading="generatingCoverLetter"
-        class="main-panel__button main-panel__button--cover-letter"
-        @click="handleGenerateCoverLetter"
-      >
-        <template #icon>
-          <EditOutlined />
-        </template>
-        {{ generatingCoverLetter ? 'Writing...' : 'Generate cover letter' }}
-      </a-button>
+      <div class="main-panel__actions-row">
+        <a-button
+          size="large"
+          block
+          :loading="evaluating"
+          class="main-panel__button main-panel__button--evaluate"
+          @click="handleEvaluateMatch"
+        >
+          <template #icon>
+            <BarChartOutlined />
+          </template>
+          {{ evaluating ? 'Evaluating...' : 'Evaluate match' }}
+        </a-button>
 
-      <a-button
-        size="large"
-        block
-        :loading="filling"
-        class="main-panel__button main-panel__button--secondary"
-        @click="handleAutoFillForm"
-      >
-        <template #icon>
-          <FormOutlined />
-        </template>
-        {{ filling ? 'Filling...' : 'Auto-fill form' }}
-      </a-button>
+        <a-button
+          size="large"
+          block
+          :loading="filling"
+          class="main-panel__button main-panel__button--secondary"
+          @click="handleAutoFillForm"
+        >
+          <template #icon>
+            <FormOutlined />
+          </template>
+          {{ filling ? 'Filling...' : 'Auto-fill form' }}
+        </a-button>
+      </div>
     </div>
 
     <a-alert
-      v-if="error && !generating && !generatingCoverLetter && !evaluating"
+      v-if="error && !generating && !evaluating"
       type="error"
       show-icon
       closable
@@ -481,6 +456,22 @@ async function handleAutoFillForm() {
 
       <div class="main-panel__match-body">
         <MarkdownContent :source="matchResultBody" />
+      </div>
+    </div>
+
+    <div v-if="matchComment" class="main-panel__result">
+      <div class="main-panel__result-header">
+        <span class="main-panel__result-title">Match notes</span>
+        <a-button size="small" @click="handleCopyMatchComment">
+          <template #icon>
+            <CheckOutlined v-if="copiedMatchComment" />
+            <CopyOutlined v-else />
+          </template>
+          {{ copiedMatchComment ? 'Copied' : 'Copy' }}
+        </a-button>
+      </div>
+      <div class="main-panel__result-body main-panel__result-body--prose">
+        <MarkdownContent :source="matchComment" />
       </div>
     </div>
 
@@ -623,6 +614,12 @@ async function handleAutoFillForm() {
 .main-panel__actions {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.main-panel__actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 

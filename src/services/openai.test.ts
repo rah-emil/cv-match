@@ -3,10 +3,10 @@ import { DEFAULT_SETTINGS, DEFAULT_COVER_LETTER_PROMPT, DEFAULT_MATCH_ASSESSMENT
 import {
   generateCv,
   evaluateMatch,
-  generateCoverLetter,
   buildUserMessage,
   buildMatchAssessmentUserMessage,
-  buildCoverLetterUserMessage,
+  buildCvSystemMessage,
+  parseGeneratedCv,
   buildCompletionBody,
   usesMaxCompletionTokens,
 } from './openai'
@@ -47,6 +47,8 @@ describe('openai service', () => {
 
       expect(msg).toContain('=== OUTPUT FORMAT ===')
       expect(msg).toContain('Markdown')
+      expect(msg).toContain('JSON')
+      expect(msg).toContain('cvContent')
     })
 
     it('shows placeholder when no cv content', () => {
@@ -111,9 +113,19 @@ describe('openai service', () => {
   })
 
   describe('generateCv', () => {
-    it('uses systemPrompt from settings as system message', async () => {
+    it('embeds systemPrompt from settings into the system message', async () => {
       const mockResponse = {
-        choices: [{ message: { content: 'Generated CV text' } }],
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                cvContent: '# CV',
+                coverLetter: 'Letter',
+                matchComment: 'Strong fit',
+              }),
+            },
+          },
+        ],
       }
 
       const fetchMock = vi.fn().mockResolvedValue({
@@ -133,15 +145,21 @@ describe('openai service', () => {
 
       const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
         messages: { role: string; content: string }[]
+        response_format?: { type: string }
       }
       expect(body.messages[0].role).toBe('system')
-      expect(body.messages[0].content).toBe('Custom system prompt')
+      expect(body.messages[0].content).toContain('Custom system prompt')
+      expect(body.messages[0].content).toContain('cvContent')
+      expect(body.response_format).toEqual({ type: 'json_object' })
     })
 
-    it('uses DEFAULT_SYSTEM_PROMPT when settings has default', async () => {
+    it('embeds DEFAULT_SYSTEM_PROMPT when settings has default', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: '{"cvContent":"x","coverLetter":"","matchComment":""}' } }],
+          }),
       })
       globalThis.fetch = fetchMock
 
@@ -150,15 +168,25 @@ describe('openai service', () => {
       const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
         messages: { role: string; content: string }[]
       }
-      expect(body.messages[0].content).toBe(DEFAULT_SYSTEM_PROMPT)
+      expect(body.messages[0].content).toContain(DEFAULT_SYSTEM_PROMPT)
     })
 
-    it('calls OpenAI API with correct parameters', async () => {
+    it('parses the JSON response into cvContent, coverLetter and matchComment', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
           Promise.resolve({
-            choices: [{ message: { content: 'Generated CV text' } }],
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    cvContent: '# Jane Doe',
+                    coverLetter: 'Dear hiring manager...',
+                    matchComment: 'Solid match with minor gaps.',
+                  }),
+                },
+              },
+            ],
           }),
       })
       globalThis.fetch = fetchMock
@@ -166,13 +194,14 @@ describe('openai service', () => {
       const settings = {
         ...DEFAULT_SETTINGS,
         openAiApiKey: 'sk-test-key',
-        openAiApiUrl: 'https://api.openai.com/v1',
         model: 'gpt-4o',
       }
 
       const result = await generateCv({ settings, jobText: 'Need a developer' })
 
-      expect(result).toBe('Generated CV text')
+      expect(result.cvContent).toBe('# Jane Doe')
+      expect(result.coverLetter).toBe('Dear hiring manager...')
+      expect(result.matchComment).toBe('Solid match with minor gaps.')
       expect(fetchMock).toHaveBeenCalledWith(
         'https://api.openai.com/v1/chat/completions',
         expect.objectContaining({
@@ -257,68 +286,65 @@ describe('openai service', () => {
     })
   })
 
-  describe('buildCoverLetterUserMessage', () => {
-    it('includes contact details and plain prose output format', () => {
-      const msg = buildCoverLetterUserMessage(
-        {
-          ...DEFAULT_SETTINGS,
-          firstName: 'Jane',
-          lastName: 'Doe',
-          email: 'jane@example.com',
-          cvContent: 'My CV',
-        },
-        'Job text',
-      )
+  describe('buildCvSystemMessage', () => {
+    it('combines the CV prompt, cover letter prompt and JSON contract', () => {
+      const msg = buildCvSystemMessage({
+        ...DEFAULT_SETTINGS,
+        systemPrompt: 'CV rules here',
+        coverLetterPrompt: 'Cover letter rules here',
+      })
 
-      expect(msg).toContain('=== CONTACT DETAILS ===')
-      expect(msg).toContain('Name: Jane Doe')
-      expect(msg).toContain('cover letter text as plain prose')
+      expect(msg).toContain('CV rules here')
+      expect(msg).toContain('Cover letter rules here')
+      expect(msg).toContain('cvContent')
+      expect(msg).toContain('coverLetter')
+      expect(msg).toContain('matchComment')
+    })
+
+    it('uses the default prompts when settings are unchanged', () => {
+      const msg = buildCvSystemMessage(DEFAULT_SETTINGS)
+
+      expect(msg).toContain(DEFAULT_SYSTEM_PROMPT)
+      expect(msg).toContain(DEFAULT_COVER_LETTER_PROMPT)
     })
   })
 
-  describe('generateCoverLetter', () => {
-    it('uses coverLetterPrompt as system message', async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            choices: [{ message: { content: 'Dear hiring manager...' } }],
-          }),
+  describe('parseGeneratedCv', () => {
+    it('parses a clean JSON object', () => {
+      const result = parseGeneratedCv(
+        '{"cvContent":"# CV","coverLetter":"Letter","matchComment":"Note"}',
+      )
+
+      expect(result).toEqual({
+        cvContent: '# CV',
+        coverLetter: 'Letter',
+        matchComment: 'Note',
       })
-      globalThis.fetch = fetchMock
-
-      const settings = {
-        ...DEFAULT_SETTINGS,
-        openAiApiKey: 'sk-test-key',
-        coverLetterPrompt: 'Custom cover letter prompt',
-        cvContent: 'My CV',
-      }
-
-      const result = await generateCoverLetter({ settings, jobText: 'Need a developer' })
-
-      expect(result).toBe('Dear hiring manager...')
-      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
-        messages: { role: string; content: string }[]
-      }
-      expect(body.messages[0].content).toBe('Custom cover letter prompt')
     })
 
-    it('uses DEFAULT_COVER_LETTER_PROMPT when settings has default', async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
-      })
-      globalThis.fetch = fetchMock
+    it('strips code fences and trailing prose around the JSON', () => {
+      const raw = 'Here you go:\n```json\n{"cvContent":"# CV","coverLetter":"L","matchComment":"M"}\n```'
+      const result = parseGeneratedCv(raw)
 
-      await generateCoverLetter({
-        settings: { ...DEFAULT_SETTINGS, openAiApiKey: 'sk-test', cvContent: 'CV' },
-        jobText: 'Job',
-      })
+      expect(result.cvContent).toBe('# CV')
+      expect(result.coverLetter).toBe('L')
+      expect(result.matchComment).toBe('M')
+    })
 
-      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
-        messages: { role: string; content: string }[]
-      }
-      expect(body.messages[0].content).toBe(DEFAULT_COVER_LETTER_PROMPT)
+    it('falls back to treating the whole response as the CV body', () => {
+      const result = parseGeneratedCv('Just a plain CV with no JSON')
+
+      expect(result.cvContent).toBe('Just a plain CV with no JSON')
+      expect(result.coverLetter).toBe('')
+      expect(result.matchComment).toBe('')
+    })
+
+    it('defaults missing optional fields to empty strings', () => {
+      const result = parseGeneratedCv('{"cvContent":"# CV"}')
+
+      expect(result.cvContent).toBe('# CV')
+      expect(result.coverLetter).toBe('')
+      expect(result.matchComment).toBe('')
     })
   })
 })
