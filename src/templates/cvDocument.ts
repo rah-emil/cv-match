@@ -145,6 +145,36 @@ export function createCvRenderRoot(
   return root
 }
 
-export function defaultCvPdfFilename(date = new Date()): string {
-  return `tailored-cv-${date.toISOString().slice(0, 10)}.pdf`
+function sanitizeFilenamePart(value: string, fallback: string): string {
+  const sanitized = value.trim().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '')
+  return sanitized || fallback
+}
+
+export function buildCvExportBasename(
+  firstName: string,
+  lastName: string,
+  date = new Date(),
+): string {
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = String(date.getFullYear())
+
+  return `CV-${sanitizeFilenamePart(firstName, 'First_Name')}-${sanitizeFilenamePart(lastName, 'Last_Name')}-${day}-${month}-${year}`
+}
+
+export function buildCvExportFilename(
+  firstName: string,
+  lastName: string,
+  extension: 'pdf' | 'md',
+  date = new Date(),
+): string {
+  return `${buildCvExportBasename(firstName, lastName, date)}.${extension}`
+}
+
+export function defaultCvPdfFilename(
+  firstName = '',
+  lastName = '',
+  date = new Date(),
+): string {
+  return buildCvExportFilename(firstName, lastName, 'pdf', date)
 }

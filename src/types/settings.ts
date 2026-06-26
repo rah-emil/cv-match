@@ -24,13 +24,45 @@ export interface ExtensionSettings {
   website: string
 }
 
-export const DEFAULT_SYSTEM_PROMPT = `Analyze my original CV, contact details, and the full job description. Generate a tailored CV optimized for this specific vacancy, with the goal of maximizing the perceived match for ATS systems, recruiters, HR managers, and company owners.
+export const DEFAULT_SYSTEM_PROMPT = `Analyze my original CV, contact details, and the full job description. Generate a tailored CV optimized for this specific vacancy, with the goal of maximizing the perceived match for ATS systems, recruiters, HR managers, hiring managers, and company owners.
 
 Do not generate a cover letter. The cover letter is handled separately.
 
-First, identify the role's core requirements: job title, seniority level, responsibilities, must-have skills, nice-to-have skills, tools, technologies, industry/domain keywords, soft skills, and business outcomes expected from the candidate.
+First, identify the role's core requirements: job title, seniority level, responsibilities, must-have skills, nice-to-have skills, tools, technologies, industry/domain keywords, soft skills, leadership expectations, and expected business outcomes.
 
-Then transform my CV honestly and strategically:
+Then generate the CV using this structure:
+
+1. Header
+   Include my name, location, contact details, LinkedIn, and other relevant links if available. Keep it clean and ATS-friendly.
+
+2. Target Title / Positioning Line
+   Create a concise professional headline aligned with the vacancy, using honest market positioning based on my real experience. Do not overstate my role.
+
+3. Professional Summary
+   Write 3–5 concise lines explaining who I am professionally, my level, relevant domains, strongest experience, and why my background matches the target role. Do not mention the specific company name in the CV.
+
+4. Core Skills / Key Competencies
+   Create an ATS-friendly skills section grouped by category. Use relevant keywords from the job description only where they match my real experience. Avoid keyword stuffing.
+
+5. Selected Achievements / Role Match Highlights
+   Add 4–6 bullet points showing the strongest evidence that I match the role: leadership, team scaling, architecture, product delivery, ownership, business impact, technical strategy, measurable outcomes, or domain-specific achievements. Use numbers where supported by my original CV.
+
+6. Professional Experience
+   List my experience in reverse chronological order. Give the most space and detail to the most recent and most relevant roles. Rewrite bullets to show ownership, scale, impact, technical stack, leadership, business value, and outcomes where supported by the source information.
+
+7. Earlier Experience
+   Compress older or less relevant roles into a short section with minimal detail. Do not include long descriptions of old web-development, freelance, or unrelated experience unless it directly supports this specific vacancy.
+
+8. Education / Certifications
+   Include only if available and relevant. Do not invent anything.
+
+9. Languages
+   Include language skills if available or if the job description requires them.
+
+10. Optional Relevant Projects / AI & Data Initiatives
+    Include this section only if the original CV or provided materials contain real relevant projects. Do not invent AI, ML, data, cloud, or engineering projects.
+
+Transformation rules:
 
 * Use the same or very close terminology from the job description where it matches my real experience.
 * Adapt role titles, summaries, skills, and experience descriptions to align with the vacancy, but do not invent facts, employers, dates, tools, achievements, certifications, or experience I do not have.
@@ -38,13 +70,12 @@ Then transform my CV honestly and strategically:
 * Do not add company-specific phrases inside the CV, such as direct references to the company name, its internal initiatives, or phrases like "highly relevant to [Company]'s new direction". The CV should be tailored to the role and job requirements, but still look reusable, natural, and professional.
 * Prioritize only the experience, projects, technologies, achievements, and responsibilities that are relevant to this vacancy.
 * Remove or greatly reduce anything unrelated to the vacancy.
-* Compress older or less relevant experience into a short "Earlier Experience" section or summarize it briefly without detailed bullet points, unless that experience is directly important for the target role.
-* Give the most space and detail to the most relevant recent roles, leadership experience, technical ownership, business impact, and role-specific achievements.
 * Rewrite experience bullets to show concrete impact, ownership, scale, business value, technical stack, and measurable outcomes where supported by the source information.
-* Include exact-match keywords from the job description naturally across the Summary, Skills, and Experience sections, avoiding keyword stuffing.
-* Make the CV ATS-friendly: clean structure, standard section names, no tables, no graphics, no unnecessary formatting, and clear readable bullet points.
+* Include exact-match keywords from the job description naturally across the Summary, Skills, Achievements, and Experience sections.
+* Make the CV ATS-friendly: clean structure, standard section names, no tables, no graphics, no columns, no unnecessary formatting, and clear readable bullet points.
 
-Before writing the final version, internally compare my profile against the vacancy and focus the CV on the strongest match areas. If something from my background does not support this specific application, omit it or reduce it significantly. The final output should feel human, professional, focused, and highly relevant to this exact role, not generic, over-personalized for one company, or obviously AI-generated.`
+Before writing the final version, internally compare my profile against the vacancy and focus the CV on the strongest match areas. If something from my background does not support this specific application, omit it or reduce it significantly. The final output should feel human, professional, focused, and highly relevant to this exact role, not generic, over-personalized for one company, or obviously AI-generated.
+`
 
 export const DEFAULT_MATCH_ASSESSMENT_PROMPT = `Analyze my original CV, contact details, and the full job description. Evaluate how well my profile matches this specific vacancy.
 

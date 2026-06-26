@@ -13,6 +13,7 @@ import {
 import { message } from 'ant-design-vue'
 import type { ExtensionSettings } from '../types/settings'
 import { downloadCvPdf } from '../services/cvPdf'
+import { buildCvExportBasename, buildCvExportFilename } from '../templates/cvDocument'
 import { evaluateMatch, generateCoverLetter, generateCv } from '../services/openai'
 import {
   extractAutofillProfile,
@@ -195,8 +196,14 @@ async function handleDownloadPdf() {
   downloadingPdf.value = true
   try {
     message.info('Building PDF...')
-    await downloadCvPdf(cvResult.value, undefined, {
+    const filename = buildCvExportFilename(
+      props.settings.firstName,
+      props.settings.lastName,
+      'pdf',
+    )
+    await downloadCvPdf(cvResult.value, filename, {
       avatarDataUrl: props.settings.avatarDataUrl,
+      documentTitle: buildCvExportBasename(props.settings.firstName, props.settings.lastName),
     })
     message.success('Downloaded as PDF')
   } catch (e) {
@@ -211,7 +218,11 @@ function handleDownloadMarkdown() {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `tailored-cv-${new Date().toISOString().slice(0, 10)}.md`
+  a.download = buildCvExportFilename(
+    props.settings.firstName,
+    props.settings.lastName,
+    'md',
+  )
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

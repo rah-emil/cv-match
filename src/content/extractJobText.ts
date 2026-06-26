@@ -1,49 +1,102 @@
+import {
+  cancelJobTextPicker,
+  isJobTextPickerActive,
+  startJobTextPicker,
+} from './jobTextPicker'
+import { extractJobTextAutomatically } from '../utils/jobTextExtraction'
+
+type ExtractJobTextResponse = {
+  text?: string
+  error?: string
+  source?: 'manual' | 'auto'
+}
+
+type JobTextSelectionResponse = {
+  text?: string
+  source?: 'manual' | 'auto' | null
+  charCount?: number
+  pickerActive?: boolean
+  error?: string
+}
+
+type PickerActionResponse = {
+  started?: boolean
+  cancelled?: boolean
+  error?: string
+}
+
+let manualJobText: string | null = null
+
+function resolveJobText(): ExtractJobTextResponse {
+  if (manualJobText?.trim()) {
+    return { text: manualJobText, source: 'manual' }
+  }
+
+  return { text: extractJobTextAutomatically(), source: 'auto' }
+}
+
 chrome.runtime.onMessage.addListener(
   (
     request: { action: string },
     _sender: chrome.runtime.MessageSender,
-    sendResponse: (response: { text?: string; error?: string }) => void,
+    sendResponse: (
+      response:
+        | ExtractJobTextResponse
+        | JobTextSelectionResponse
+        | PickerActionResponse,
+    ) => void,
   ) => {
-    if (request.action !== 'extractJobText') return false
-
     try {
-      const selectors = [
-        '[class*="job-description"]',
-        '[class*="jobDescription"]',
-        '[class*="vacancy"]',
-        '[class*="posting"]',
-        '[data-testid*="job"]',
-        '[id*="job-description"]',
-        '[id*="jobDescription"]',
-        'article',
-        'main',
-        '[role="main"]',
-      ]
+      if (request.action === 'extractJobText') {
+        sendResponse(resolveJobText())
+        return true
+      }
 
-      let text = ''
+      if (request.action === 'getJobTextSelection') {
+        sendResponse({
+          text: manualJobText ?? undefined,
+          source: manualJobText ? 'manual' : null,
+          charCount: manualJobText?.length ?? 0,
+          pickerActive: isJobTextPickerActive(),
+        })
+        return true
+      }
 
-      for (const selector of selectors) {
-        const el = document.querySelector(selector)
-        if (el?.textContent && el.textContent.trim().length > 100) {
-          text = el.textContent.trim()
-          break
+      if (request.action === 'clearJobTextSelection') {
+        manualJobText = null
+        cancelJobTextPicker()
+        sendResponse({ cancelled: true })
+        return true
+      }
+
+      if (request.action === 'startJobTextPicker') {
+        if (isJobTextPickerActive()) {
+          sendResponse({ started: true })
+          return true
         }
+
+        startJobTextPicker(
+          (text) => {
+            manualJobText = text
+          },
+          () => {
+            manualJobText = manualJobText ?? null
+          },
+        )
+        sendResponse({ started: true })
+        return true
       }
 
-      if (!text) {
-        text = document.body.innerText
+      if (request.action === 'cancelJobTextPicker') {
+        cancelJobTextPicker()
+        sendResponse({ cancelled: true })
+        return true
       }
-
-      const maxLen = 12000
-      if (text.length > maxLen) {
-        text = text.substring(0, maxLen) + '\n...[truncated]'
-      }
-
-      sendResponse({ text })
-    } catch (e) {
-      sendResponse({ error: (e as Error).message })
+    } catch (error) {
+      sendResponse({ error: (error as Error).message })
+      return true
     }
 
-    return true
+    return false
   },
 )
