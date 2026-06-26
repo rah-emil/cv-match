@@ -59,4 +59,4 @@ pnpm check       # tsc + tests + build
 
 ## Chrome Web Store
 
-[Install CV Match](https://chromewebstore.google.com/detail/cv-match/jpkafdnjcidnbclhfdjmfgjkmphidicm)
+Only manual flow at the moment
