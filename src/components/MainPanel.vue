@@ -6,6 +6,7 @@ import {
   CheckOutlined,
   CloseOutlined,
   CopyOutlined,
+  DeleteOutlined,
   DownloadOutlined,
   FilePdfOutlined,
   FileTextOutlined,
@@ -34,6 +35,12 @@ import {
   type MatchScorePresentation,
 } from '../utils/matchScore'
 import MarkdownContent from './MarkdownContent.vue'
+import {
+  clearGeneratedContent,
+  loadGeneratedContent,
+  saveGeneratedContent,
+  type StoredGeneratedContent,
+} from '../storage/generatedContentStorage'
 
 const props = defineProps<{
   settings: ExtensionSettings
@@ -56,7 +63,18 @@ const clearingJobBlock = ref(false)
 const jobTextSource = ref<JobTextSource>(null)
 const jobTextCharCount = ref(0)
 const jobTextPickerActive = ref(false)
+const clearingGenerated = ref(false)
 const error = ref('')
+
+const hasGeneratedContent = computed(
+  () =>
+    Boolean(
+      cvResult.value ||
+        coverLetterResult.value ||
+        matchComment.value ||
+        matchResult.value,
+    ),
+)
 
 const jobTextSelectionLabel = computed(() => {
   if (jobTextPickerActive.value) {
@@ -83,7 +101,51 @@ async function refreshJobTextSelection() {
   }
 }
 
+async function applyStoredGeneratedContent(stored: StoredGeneratedContent) {
+  cvResult.value = stored.cvResult
+  coverLetterResult.value = stored.coverLetterResult
+  matchComment.value = stored.matchComment
+  matchResult.value = stored.matchResult
+
+  const score = parseMatchScore(stored.matchResult)
+  matchScore.value = score !== null ? getMatchScorePresentation(score) : null
+}
+
+async function persistGeneratedContentFromState() {
+  await saveGeneratedContent({
+    cvResult: cvResult.value,
+    coverLetterResult: coverLetterResult.value,
+    matchComment: matchComment.value,
+    matchResult: matchResult.value,
+  })
+}
+
+async function clearCvGeneratedContent() {
+  cvResult.value = ''
+  coverLetterResult.value = ''
+  matchComment.value = ''
+  await persistGeneratedContentFromState()
+}
+
+async function clearAllGeneratedContent() {
+  cvResult.value = ''
+  coverLetterResult.value = ''
+  matchComment.value = ''
+  matchResult.value = ''
+  matchScore.value = null
+  await clearGeneratedContent()
+}
+
+async function restoreGeneratedContent() {
+  try {
+    await applyStoredGeneratedContent(await loadGeneratedContent())
+  } catch {
+    // Ignore storage errors on restore.
+  }
+}
+
 onMounted(() => {
+  void restoreGeneratedContent()
   void refreshJobTextSelection()
   document.addEventListener('visibilitychange', handlePopupVisibilityChange)
 })
@@ -94,6 +156,7 @@ onUnmounted(() => {
 
 function handlePopupVisibilityChange() {
   if (document.visibilityState === 'visible') {
+    void restoreGeneratedContent()
     void refreshJobTextSelection()
   }
 }
@@ -170,6 +233,7 @@ async function handleEvaluateMatch() {
   if (!validatePrerequisites()) return
 
   evaluating.value = true
+  await clearCvGeneratedContent()
   matchResult.value = ''
   matchScore.value = null
   error.value = ''
@@ -190,6 +254,7 @@ async function handleEvaluateMatch() {
       matchScore.value = getMatchScorePresentation(score)
     }
 
+    await persistGeneratedContentFromState()
     message.success('Done')
   } catch (e) {
     const msg = (e as Error).message
@@ -222,9 +287,7 @@ async function handleGenerateCv() {
   if (!validatePrerequisites()) return
 
   generating.value = true
-  cvResult.value = ''
-  coverLetterResult.value = ''
-  matchComment.value = ''
+  await clearCvGeneratedContent()
   error.value = ''
 
   try {
@@ -239,6 +302,7 @@ async function handleGenerateCv() {
     cvResult.value = generated.cvContent
     coverLetterResult.value = generated.coverLetter
     matchComment.value = generated.matchComment
+    await persistGeneratedContentFromState()
     message.success('CV generated — download PDF below')
   } catch (e) {
     const msg = (e as Error).message
@@ -246,6 +310,22 @@ async function handleGenerateCv() {
     message.error(msg)
   } finally {
     generating.value = false
+  }
+}
+
+async function handleClearGeneratedContent() {
+  clearingGenerated.value = true
+  error.value = ''
+
+  try {
+    await clearAllGeneratedContent()
+    message.success('Results cleared')
+  } catch (e) {
+    const msg = (e as Error).message
+    error.value = msg
+    message.error(msg)
+  } finally {
+    clearingGenerated.value = false
   }
 }
 
@@ -424,6 +504,18 @@ async function handleAutoFillForm() {
           {{ filling ? 'Filling...' : 'Auto-fill form' }}
         </a-button>
       </div>
+    </div>
+
+    <div v-if="hasGeneratedContent" class="main-panel__clear-results">
+      <a-button
+        size="small"
+        danger
+        :loading="clearingGenerated"
+        @click="handleClearGeneratedContent"
+      >
+        <template #icon><DeleteOutlined /></template>
+        Clear results
+      </a-button>
     </div>
 
     <a-alert
@@ -621,6 +713,11 @@ async function handleAutoFillForm() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.main-panel__clear-results {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .main-panel__button {

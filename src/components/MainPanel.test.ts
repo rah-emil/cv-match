@@ -1,7 +1,9 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import Antd from 'ant-design-vue'
 import { DEFAULT_SETTINGS } from '../types/settings'
+import { GENERATED_CONTENT_STORAGE_KEY } from '../storage/generatedContentStorage'
+import { storageData } from '../test/setup'
 import MainPanel from './MainPanel.vue'
 
 const messageWarning = vi.fn()
@@ -37,6 +39,7 @@ describe('MainPanel', () => {
   beforeEach(() => {
     messageWarning.mockClear()
     messageInfo.mockClear()
+    delete storageData[GENERATED_CONTENT_STORAGE_KEY]
   })
 
   it('renders primary and secondary action buttons', () => {
@@ -87,6 +90,23 @@ describe('MainPanel', () => {
     expect(messageWarning).toHaveBeenCalledWith(
       'Upload your CV in the Profile tab first',
     )
+  })
+
+  it('restores generated content from storage on mount', async () => {
+    storageData[GENERATED_CONTENT_STORAGE_KEY] = {
+      cvResult: '# Jane Doe',
+      coverLetterResult: 'Dear team...',
+      matchComment: 'Strong fit',
+      matchResult: '',
+    }
+
+    const wrapper = mountMainPanel()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Generated CV')
+    expect(wrapper.text()).toContain('Cover letter')
+    expect(wrapper.text()).toContain('Match notes')
+    expect(wrapper.text()).toContain('Jane Doe')
   })
 
   it('warns when Auto-fill form is clicked without required profile fields', async () => {
