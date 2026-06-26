@@ -121,7 +121,7 @@ async function processFile(file: File) {
 
 async function analyzeUploadedCv() {
   if (!form.openAiApiKey.trim()) {
-    message.warning('Add your OpenAI API key in Settings to build the AI CV context')
+    message.warning('Add your API key in Settings to build the AI CV context')
     return
   }
 

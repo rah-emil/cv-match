@@ -7,19 +7,21 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_SYSTEM_PROMPT,
   MAX_OUTPUT_TOKENS_HINT,
-  PRESET_MODELS,
   type ExtensionSettings,
 } from './settings'
+import { getPresetModels } from './aiProviders'
 
 describe('DEFAULT_SETTINGS', () => {
-  it('has expected default API URL and model', () => {
+  it('has expected default provider, API URL and model', () => {
+    expect(DEFAULT_SETTINGS.aiProvider).toBe('openai')
     expect(DEFAULT_SETTINGS.openAiApiUrl).toBe('https://api.openai.com/v1')
-    expect(DEFAULT_SETTINGS.model).toBe('gpt-4o')
+    expect(DEFAULT_SETTINGS.model).toBe('gpt-5.5')
     expect(DEFAULT_SETTINGS.themeMode).toBe('auto')
   })
 
   it('contains all required string fields', () => {
     const keys: (keyof ExtensionSettings)[] = [
+      'aiProvider',
       'openAiApiKey',
       'coverLetter',
       'openAiApiUrl',
@@ -63,8 +65,8 @@ describe('DEFAULT_SETTINGS', () => {
     expect(DEFAULT_SETTINGS.cvContent).toBe('')
   })
 
-  it('defaults match evaluation model to gpt-4o-mini', () => {
-    expect(DEFAULT_SETTINGS.matchAssessmentModel).toBe('gpt-4o-mini-2024-07-18')
+  it('defaults match evaluation model to gpt-5.4-mini', () => {
+    expect(DEFAULT_SETTINGS.matchAssessmentModel).toBe('gpt-5.4-mini')
   })
 
   it('has a default cover letter prompt', () => {
@@ -86,11 +88,11 @@ describe('DEFAULT_SETTINGS', () => {
   })
 })
 
-describe('PRESET_MODELS', () => {
-  it('includes expected model names', () => {
-    expect(PRESET_MODELS).toContain('gpt-5.5')
-    expect(PRESET_MODELS).toContain('gpt-5.4')
-    expect(PRESET_MODELS).toContain('gpt-4o-mini-2024-07-18')
+describe('provider preset models', () => {
+  it('includes expected OpenAI model names', () => {
+    expect(getPresetModels('openai')).toContain('gpt-5.5')
+    expect(getPresetModels('openai')).toContain('gpt-5.4')
+    expect(getPresetModels('openai')).toContain('gpt-4o-mini-2024-07-18')
   })
 })
 

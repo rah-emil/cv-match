@@ -3,6 +3,7 @@ import {
   SETTINGS_STORAGE_KEY,
   type ExtensionSettings,
 } from '../types/settings'
+import { syncProviderApiUrl } from '../types/aiProviders'
 
 function getLocalStorage() {
   if (typeof chrome === 'undefined' || !chrome.storage?.local) {
@@ -17,10 +18,16 @@ function getLocalStorage() {
 function mergeWithDefaults(
   stored: Partial<ExtensionSettings> | undefined,
 ): ExtensionSettings {
-  return {
+  const merged: ExtensionSettings = {
     ...DEFAULT_SETTINGS,
     ...stored,
   }
+
+  if (merged.cvContext.trim()) {
+    merged.cvContent = ''
+  }
+
+  return syncProviderApiUrl(merged)
 }
 
 export async function loadSettings(): Promise<ExtensionSettings> {

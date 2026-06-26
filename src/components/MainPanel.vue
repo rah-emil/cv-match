@@ -217,7 +217,7 @@ const matchResultBody = computed(() => stripScoreLine(matchResult.value))
 
 function validatePrerequisites(): boolean {
   if (!props.settings.openAiApiKey.trim()) {
-    message.warning('Add your OpenAI API key in Settings')
+    message.warning('Add your API key in Settings')
     return false
   }
 

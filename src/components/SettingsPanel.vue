@@ -9,12 +9,18 @@ import {
 } from '@ant-design/icons-vue'
 import ThemePicker from './ThemePicker.vue'
 import {
+  AI_PROVIDER_OPTIONS,
+  applyProviderChange,
+  getProviderConfig,
+  getPresetModels,
+  type AiProvider,
+} from '../types/aiProviders'
+import {
   DEFAULT_COVER_LETTER_PROMPT,
   DEFAULT_MATCH_ASSESSMENT_PROMPT,
   DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_SYSTEM_PROMPT,
   MAX_OUTPUT_TOKENS_HINT,
-  PRESET_MODELS,
   type ExtensionSettings,
   type ThemeMode,
 } from '../types/settings'
@@ -38,7 +44,14 @@ const showMaxTokensHint = computed(
   () => maxTokensChanged.value || form.maxOutputTokens !== DEFAULT_MAX_OUTPUT_TOKENS,
 )
 
-const modelOptions = PRESET_MODELS.map((m) => ({ value: m, label: m }))
+const providerConfig = computed(() => getProviderConfig(form.aiProvider))
+
+const modelOptions = computed(() =>
+  getPresetModels(form.aiProvider).map((model) => ({
+    value: model,
+    label: model,
+  })),
+)
 
 watch(
   () => props.settings,
@@ -48,8 +61,12 @@ watch(
   { deep: true },
 )
 
+function handleProviderChange(provider: AiProvider) {
+  Object.assign(form, applyProviderChange(form, provider))
+}
+
 function handleSubmit() {
-  emit('save', { ...form })
+  emit('save', applyProviderChange(form, form.aiProvider))
 }
 
 function handleThemeChange(mode: ThemeMode) {
@@ -113,38 +130,37 @@ function handleMaxTokensChange() {
 
     <a-divider class="settings-panel__divider" />
 
-    <!-- OpenAI connection -->
+    <!-- AI connection -->
     <div class="settings-panel__group">
-      <div class="settings-panel__label-row">
-        <span class="settings-panel__label">OpenAI connection</span>
+      <div class="settings-panel__label">AI connection</div>
+      <p class="settings-panel__hint">
+        Choose a provider, add your API key, and pick models. The default model
+        handles match evaluation and CV analysis; use a stronger one for CV
+        generation.
+      </p>
+
+      <a-form-item label="AI provider" name="aiProvider" class="settings-panel__provider-item">
+        <a-select
+          v-model:value="form.aiProvider"
+          :options="AI_PROVIDER_OPTIONS"
+          @change="handleProviderChange"
+        />
         <a
-          href="https://platform.openai.com/"
+          :href="providerConfig.consoleUrl"
           target="_blank"
           rel="noopener noreferrer"
           class="settings-panel__get-token"
         >
           <LinkOutlined />
-          Get token
+          Get API key
         </a>
-      </div>
-      <p class="settings-panel__hint">
-        API credentials and models. The default model handles other tasks such
-        as match evaluation and CV analysis; use a stronger one for CV
-        generation.
-      </p>
-
-      <a-form-item label="OpenAI API key" name="openAiApiKey">
-        <a-input-password
-          v-model:value="form.openAiApiKey"
-          placeholder="sk-..."
-          autocomplete="off"
-        />
       </a-form-item>
 
-      <a-form-item label="OpenAI API URL" name="openAiApiUrl">
-        <a-input
-          v-model:value="form.openAiApiUrl"
-          placeholder="https://api.openai.com/v1"
+      <a-form-item label="API key" name="openAiApiKey">
+        <a-input-password
+          v-model:value="form.openAiApiKey"
+          :placeholder="providerConfig.apiKeyPlaceholder"
+          autocomplete="off"
         />
       </a-form-item>
 
@@ -153,7 +169,7 @@ function handleMaxTokensChange() {
           v-model:value="form.model"
           mode="combobox"
           :options="modelOptions"
-          placeholder="gpt-4o"
+          :placeholder="providerConfig.defaultCvModel"
           :filter-option="
             (input: string, option: { value: string } | undefined) =>
               option?.value?.toLowerCase().includes(input.toLowerCase()) ?? false
@@ -167,7 +183,7 @@ function handleMaxTokensChange() {
           v-model:value="form.matchAssessmentModel"
           mode="combobox"
           :options="modelOptions"
-          placeholder="gpt-4o-mini-2024-07-18"
+          :placeholder="providerConfig.defaultTaskModel"
           :filter-option="
             (input: string, option: { value: string } | undefined) =>
               option?.value?.toLowerCase().includes(input.toLowerCase()) ?? false
@@ -473,11 +489,16 @@ function handleMaxTokensChange() {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  margin-top: 8px;
   font-size: 12px;
   font-weight: 500;
   color: #2f54eb;
   text-decoration: none;
   transition: opacity 0.15s;
+}
+
+.settings-panel__provider-item {
+  margin-bottom: 12px;
 }
 
 .settings-panel__get-token:hover {

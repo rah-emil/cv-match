@@ -24,22 +24,20 @@ function mountSettingsPanel(onSave = vi.fn()) {
 }
 
 describe('SettingsPanel', () => {
-  it('renders appearance, OpenAI connection and CV generation prompt sections', () => {
+  it('renders appearance, AI connection and CV generation prompt sections', () => {
     const wrapper = mountSettingsPanel()
 
     expect(wrapper.text()).toContain('Appearance')
     expect(wrapper.text()).toContain('System')
     expect(wrapper.text()).toContain('Light')
     expect(wrapper.text()).toContain('Dark')
-    expect(wrapper.text()).toContain('OpenAI connection')
-    expect(wrapper.text()).toContain('Get token')
+    expect(wrapper.text()).toContain('AI connection')
+    expect(wrapper.text()).toContain('Get API key')
+    expect(wrapper.text()).toContain('AI provider')
     expect(wrapper.text()).toContain('CV generation prompt')
     expect(wrapper.text()).toContain('Match assessment prompt')
     expect(wrapper.text()).toContain('Cover letter prompt')
     expect(wrapper.find('input[placeholder="sk-..."]').exists()).toBe(true)
-    expect(
-      wrapper.find('input[placeholder="https://api.openai.com/v1"]').exists(),
-    ).toBe(true)
     expect(wrapper.text()).toContain('CV generation model')
     expect(wrapper.text()).toContain('Default model for other tasks')
     expect(wrapper.text()).toContain('Save settings')
@@ -74,7 +72,7 @@ describe('SettingsPanel', () => {
     expect(wrapper.text()).toContain(MAX_OUTPUT_TOKENS_HINT)
   })
 
-  it('renders Get token as a link to platform.openai.com', () => {
+  it('renders Get API key as a link to the selected provider console', () => {
     const wrapper = mountSettingsPanel()
     const link = wrapper.find('a.settings-panel__get-token')
 

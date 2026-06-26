@@ -1,6 +1,10 @@
+import type { AiProvider } from './aiProviders'
+import { AI_PROVIDER_CONFIGS } from './aiProviders'
+
 export type ThemeMode = 'auto' | 'light' | 'dark'
 
 export interface ExtensionSettings {
+  aiProvider: AiProvider
   openAiApiKey: string
   coverLetter: string
   openAiApiUrl: string
@@ -146,16 +150,8 @@ Respond with ONE valid JSON object and nothing else, using exactly these fields:
 
 Do not wrap the JSON in code fences. Do not output anything before or after the JSON object.`
 
-export const PRESET_MODELS = [
-  'gpt-5.5',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'gpt-5.4-nano-2026-03-17',
-  'gpt-5-nano-2025-08-07',
-  'gpt-4o-mini-2024-07-18',
-] as const
-
-export const DEFAULT_MATCH_ASSESSMENT_MODEL = 'gpt-4o-mini-2024-07-18'
+export const DEFAULT_MATCH_ASSESSMENT_MODEL =
+  AI_PROVIDER_CONFIGS.openai.defaultTaskModel
 
 export const DEFAULT_MAX_OUTPUT_TOKENS = 4096
 
@@ -163,10 +159,11 @@ export const MAX_OUTPUT_TOKENS_HINT =
   '4096 — fine for most job applications. Raise it – e.g. 8192 if CV + long cover letter + extra sections aren\'t enough.'
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
+  aiProvider: 'openai',
   openAiApiKey: '',
   coverLetter: '',
   openAiApiUrl: 'https://api.openai.com/v1',
-  model: 'gpt-4o',
+  model: AI_PROVIDER_CONFIGS.openai.defaultCvModel,
   matchAssessmentModel: DEFAULT_MATCH_ASSESSMENT_MODEL,
   cvFilePath: '',
   cvContent: '',

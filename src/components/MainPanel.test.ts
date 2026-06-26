@@ -61,7 +61,7 @@ describe('MainPanel', () => {
     await wrapper.get('button.main-panel__button--evaluate').trigger('click')
 
     expect(messageWarning).toHaveBeenCalledWith(
-      'Add your OpenAI API key in Settings',
+      'Add your API key in Settings',
     )
   })
 
@@ -74,7 +74,7 @@ describe('MainPanel', () => {
     await wrapper.get('button.ant-btn-primary').trigger('click')
 
     expect(messageWarning).toHaveBeenCalledWith(
-      'Add your OpenAI API key in Settings',
+      'Add your API key in Settings',
     )
   })
 

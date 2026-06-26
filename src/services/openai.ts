@@ -1,4 +1,5 @@
 import { DEFAULT_CV_ANALYSIS_PROMPT, type ExtensionSettings } from '../types/settings'
+import { resolveAiProvider } from '../types/aiProviders'
 
 export interface GenerateCvRequest {
   settings: ExtensionSettings
@@ -93,6 +94,19 @@ async function completeChat(
   model = settings.model,
   extra: Record<string, unknown> = {},
 ): Promise<string> {
+  if (resolveAiProvider(settings.aiProvider) === 'anthropic') {
+    return completeAnthropicChat(settings, messages, model, extra)
+  }
+
+  return completeOpenAiChat(settings, messages, model, extra)
+}
+
+async function completeOpenAiChat(
+  settings: ExtensionSettings,
+  messages: OpenAiMessage[],
+  model = settings.model,
+  extra: Record<string, unknown> = {},
+): Promise<string> {
   const url = `${settings.openAiApiUrl.replace(/\/+$/, '')}/chat/completions`
 
   const response = await fetch(url, {
@@ -116,6 +130,64 @@ async function completeChat(
   const content = data.choices?.[0]?.message?.content
   if (!content) {
     throw new Error('OpenAI returned an empty response')
+  }
+
+  return content
+}
+
+async function completeAnthropicChat(
+  settings: ExtensionSettings,
+  messages: OpenAiMessage[],
+  model = settings.model,
+  extra: Record<string, unknown> = {},
+): Promise<string> {
+  const url = `${settings.openAiApiUrl.replace(/\/+$/, '')}/messages`
+  const systemMessage = messages.find((message) => message.role === 'system')
+  const conversationMessages = messages
+    .filter((message) => message.role !== 'system')
+    .map((message) => ({
+      role: message.role === 'assistant' ? 'assistant' : 'user',
+      content: message.content,
+    }))
+
+  const body: Record<string, unknown> = {
+    model,
+    max_tokens: settings.maxOutputTokens || 4096,
+    temperature: 0.4,
+    messages: conversationMessages,
+    ...(systemMessage ? { system: systemMessage.content } : {}),
+    ...extra,
+  }
+
+  delete body.response_format
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': settings.openAiApiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.text()
+    throw new Error(`Anthropic API error ${response.status}: ${errorBody}`)
+  }
+
+  const data = (await response.json()) as {
+    content?: { type: string; text?: string }[]
+  }
+
+  const content = data.content
+    ?.map((block) => (block.type === 'text' ? block.text ?? '' : ''))
+    .join('')
+    .trim()
+
+  if (!content) {
+    throw new Error('Anthropic returned an empty response')
   }
 
   return content

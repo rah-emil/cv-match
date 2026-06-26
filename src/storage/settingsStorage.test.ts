@@ -34,6 +34,7 @@ describe('settingsStorage', () => {
 
   it('persists and loads all settings fields', async () => {
     const nextSettings: ExtensionSettings = {
+      aiProvider: 'openai',
       openAiApiKey: 'sk-roundtrip',
       coverLetter: 'Hello hiring manager',
       openAiApiUrl: 'https://custom.api/v1',
@@ -62,9 +63,25 @@ describe('settingsStorage', () => {
     await saveSettings(nextSettings)
     const loaded = await loadSettings()
 
-    expect(loaded).toEqual(nextSettings)
+    expect(loaded).toEqual({
+      ...nextSettings,
+      cvContent: '',
+      openAiApiUrl: 'https://api.openai.com/v1',
+    })
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
       [SETTINGS_STORAGE_KEY]: nextSettings,
     })
+  })
+
+  it('syncs API URL from the selected provider on load', async () => {
+    storageData[SETTINGS_STORAGE_KEY] = {
+      aiProvider: 'anthropic',
+      openAiApiUrl: 'https://api.openai.com/v1',
+    }
+
+    const settings = await loadSettings()
+
+    expect(settings.aiProvider).toBe('anthropic')
+    expect(settings.openAiApiUrl).toBe('https://api.anthropic.com/v1')
   })
 })

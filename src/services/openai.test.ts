@@ -286,6 +286,48 @@ describe('openai service', () => {
       }
       expect(body.messages[0].content).toBe(DEFAULT_MATCH_ASSESSMENT_PROMPT)
     })
+
+    it('calls Anthropic messages API when anthropic provider is selected', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: [{ type: 'text', text: 'Overall Match Score: 8/10' }],
+          }),
+      })
+      globalThis.fetch = fetchMock
+
+      await evaluateMatch({
+        settings: {
+          ...DEFAULT_SETTINGS,
+          aiProvider: 'anthropic',
+          openAiApiKey: 'sk-ant-test',
+          openAiApiUrl: 'https://api.anthropic.com/v1',
+          matchAssessmentModel: 'claude-3-5-haiku-20241022',
+        },
+        jobText: 'Need a developer',
+      })
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.anthropic.com/v1/messages',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'x-api-key': 'sk-ant-test',
+            'anthropic-version': '2023-06-01',
+          }),
+        }),
+      )
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        model: string
+        system: string
+        messages: { role: string; content: string }[]
+      }
+      expect(body.model).toBe('claude-3-5-haiku-20241022')
+      expect(body.system).toBe(DEFAULT_MATCH_ASSESSMENT_PROMPT)
+      expect(body.messages[0].role).toBe('user')
+    })
   })
 
   describe('analyzeCv', () => {
