@@ -9,52 +9,54 @@
   <a href="https://chromewebstore.google.com/detail/cv-match/jpkafdnjcidnbclhfdjmfgjkmphidicm"><img src="https://img.shields.io/chrome-web-store/rating/jpkafdnjcidnbclhfdjmfgjkmphidicm?label=rating" alt="Chrome Web Store rating"></a>
 </p>
 
-Chrome MV3-расширение: анализ вакансии, генерация CV/cover letter через OpenAI, автозаполнение форм.
+Chrome MV3 extension: job posting analysis, tailored CV/cover letter generation via OpenAI, form autofill.
 
-## Как работает
+## How it works
 
 ```
-Popup (Vue 3)                    Content scripts (на странице вакансии)
-├─ Home                          ├─ extractJobText.ts — JD auto / ручной picker
-│  ├─ Evaluate match             └─ autoFillForm.ts — заполнение input/textarea
+Popup (Vue 3)                    Content scripts (job page)
+├─ Home                          ├─ extractJobText.ts — auto JD / manual picker
+│  ├─ Evaluate match             └─ autoFillForm.ts — fill empty inputs
 │  ├─ Generate CV + cover letter
 │  ├─ Auto-fill form
 │  └─ PDF / MD export
-├─ Profile — CV, аватар, контакты
-└─ Settings — API key, модели, промпты
+├─ Profile — CV upload, avatar, contacts
+└─ Settings — API key, models, prompts
          ↕ chrome.storage + tabs.sendMessage
 ```
 
-1. **Profile** — загрузка CV (PDF/DOCX) → AI строит `cvContext` и подтягивает контакты.
-2. **Settings** — OpenAI API key (BYOK), модель, промпты.
-3. Открыть страницу вакансии → popup читает JD (авто или «Select block on page»).
-4. **Evaluate match** — оценка 0–10. **Generate CV** — CV + cover letter + fit notes. **Auto-fill** — пустые поля формы по профилю.
+1. **Profile** — upload CV (PDF/DOCX) → AI builds `cvContext` and fills contact fields.
+2. **Settings** — OpenAI API key (BYOK), model, prompts.
+3. Open a job posting → popup reads the JD (auto-detect or **Select block on page**).
+4. **Evaluate match** — score 0–10. **Generate CV** — CV + cover letter + fit notes. **Auto-fill** — empty form fields from profile.
 
-## Запуск
+Match and generation use `cvContext` only; raw CV text is not stored after analysis.
+
+## Development
 
 ```bash
 pnpm install
-pnpm dev         # HMR, сборка в dist/
+pnpm dev         # HMR, outputs to dist/
 pnpm build       # production → dist/
 ```
 
-## Тесты
+## Tests
 
 ```bash
 pnpm test        # vitest
 pnpm check       # tsc + tests + build
 ```
 
-## Установка в Chrome (вручную)
+## Load in Chrome (manual)
 
-1. `pnpm build` (или `pnpm dev` для разработки)
+1. `pnpm build` (or `pnpm dev` while developing)
 2. `chrome://extensions` → **Developer mode** → **Load unpacked**
-3. Папка **`dist/`** из корня репозитория
-4. Иконка CV Match в toolbar → popup
+3. Select the **`dist/`** folder in the repo root
+4. Click the CV Match toolbar icon to open the popup
 
-> После изменений content scripts перезагрузите страницу вакансии.  
-> Popup открывать только через иконку расширения — иначе `chrome.storage` недоступен.
+> Reload the job page after content script changes.  
+> Open the popup via the extension icon only — otherwise `chrome.storage` is unavailable.
 
-## Store
+## Chrome Web Store
 
-[Chrome Web Store](https://chromewebstore.google.com/detail/cv-match/jpkafdnjcidnbclhfdjmfgjkmphidicm)
+[Install CV Match](https://chromewebstore.google.com/detail/cv-match/jpkafdnjcidnbclhfdjmfgjkmphidicm)
