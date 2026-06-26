@@ -1,4 +1,4 @@
-import type { ExtensionSettings } from '../types/settings'
+import { DEFAULT_CV_ANALYSIS_PROMPT, type ExtensionSettings } from '../types/settings'
 
 export interface GenerateCvRequest {
   settings: ExtensionSettings
@@ -8,6 +8,39 @@ export interface GenerateCvRequest {
 export interface EvaluateMatchRequest {
   settings: ExtensionSettings
   jobText: string
+}
+
+export interface AnalyzeCvRequest {
+  settings: ExtensionSettings
+  cvText: string
+}
+
+/** Contact details extracted from the CV to auto-fill the profile. */
+export interface CvProfile {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  linkedIn: string
+  telegram: string
+  website: string
+}
+
+/** Distilled, reusable CV context produced once on upload. */
+export interface CvAnalysis {
+  cvContext: string
+  notes: string
+  profile: CvProfile
+}
+
+export const EMPTY_CV_PROFILE: CvProfile = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  linkedIn: '',
+  telegram: '',
+  website: '',
 }
 
 export interface OpenAiMessage {
@@ -118,6 +151,84 @@ export async function evaluateMatch(req: EvaluateMatchRequest): Promise<string> 
   )
 }
 
+export async function analyzeCv(req: AnalyzeCvRequest): Promise<CvAnalysis> {
+  const { settings, cvText } = req
+  const model = settings.matchAssessmentModel || settings.model
+
+  const raw = await completeChat(
+    settings,
+    [
+      { role: 'system', content: DEFAULT_CV_ANALYSIS_PROMPT },
+      { role: 'user', content: buildCvAnalysisUserMessage(cvText) },
+    ],
+    model,
+    { response_format: { type: 'json_object' } },
+  )
+
+  return parseCvAnalysis(raw)
+}
+
+export function buildCvAnalysisUserMessage(cvText: string): string {
+  return [
+    '=== RAW CV TEXT ===',
+    cvText.trim() || '(empty CV)',
+    '',
+    '=== OUTPUT FORMAT ===',
+    'Return a single valid JSON object with exactly the fields cvContext, notes, and profile.',
+    'cvContext MUST include a "Career timeline" section with dates for every role and education entry found in the CV.',
+    'Do not include any text or code fences outside the JSON object.',
+  ].join('\n')
+}
+
+function normalizeCvContextField(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (value && typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return ''
+    }
+  }
+  return ''
+}
+
+function parseCvProfile(value: unknown): CvProfile {
+  if (!value || typeof value !== 'object') {
+    return { ...EMPTY_CV_PROFILE }
+  }
+
+  const source = value as Record<string, unknown>
+  const read = (key: keyof CvProfile): string =>
+    typeof source[key] === 'string' ? (source[key] as string).trim() : ''
+
+  return {
+    firstName: read('firstName'),
+    lastName: read('lastName'),
+    email: read('email'),
+    phone: read('phone'),
+    linkedIn: read('linkedIn'),
+    telegram: read('telegram'),
+    website: read('website'),
+  }
+}
+
+export function parseCvAnalysis(raw: string): CvAnalysis {
+  try {
+    const parsed = JSON.parse(extractJsonBlock(raw)) as Record<string, unknown>
+    const cvContext = normalizeCvContextField(parsed.cvContext)
+    const notes = typeof parsed.notes === 'string' ? parsed.notes.trim() : ''
+    const profile = parseCvProfile(parsed.profile)
+
+    if (cvContext) {
+      return { cvContext, notes, profile }
+    }
+  } catch {
+    // Fall back to treating the whole response as the distilled context.
+  }
+
+  return { cvContext: raw.trim(), notes: '', profile: { ...EMPTY_CV_PROFILE } }
+}
+
 export function buildCvSystemMessage(settings: ExtensionSettings): string {
   return [
     settings.systemPrompt,
@@ -209,8 +320,9 @@ function buildBaseUserMessage(settings: ExtensionSettings, jobText: string): str
   parts.push(buildContactDetailsSection(settings))
 
   parts.push('\n=== MY CV ===')
-  if (settings.cvContent.trim()) {
-    parts.push(settings.cvContent)
+  const cvForPrompt = settings.cvContext.trim() || settings.cvContent.trim()
+  if (cvForPrompt) {
+    parts.push(cvForPrompt)
   } else {
     parts.push('(no CV uploaded — use the information available to generate the best possible output)')
   }

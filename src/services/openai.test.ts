@@ -3,10 +3,12 @@ import { DEFAULT_SETTINGS, DEFAULT_COVER_LETTER_PROMPT, DEFAULT_MATCH_ASSESSMENT
 import {
   generateCv,
   evaluateMatch,
+  analyzeCv,
   buildUserMessage,
   buildMatchAssessmentUserMessage,
   buildCvSystemMessage,
   parseGeneratedCv,
+  parseCvAnalysis,
   buildCompletionBody,
   usesMaxCompletionTokens,
 } from './openai'
@@ -283,6 +285,146 @@ describe('openai service', () => {
         messages: { role: string; content: string }[]
       }
       expect(body.messages[0].content).toBe(DEFAULT_MATCH_ASSESSMENT_PROMPT)
+    })
+  })
+
+  describe('analyzeCv', () => {
+    it('uses the default (match assessment) model and requests JSON', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    cvContext: 'Senior engineer. Skills: React, Node, English',
+                    notes: 'No quantified results',
+                  }),
+                },
+              },
+            ],
+          }),
+      })
+      globalThis.fetch = fetchMock
+
+      const settings = {
+        ...DEFAULT_SETTINGS,
+        openAiApiKey: 'sk-test-key',
+        model: 'gpt-5.5',
+        matchAssessmentModel: 'gpt-4o-mini-2024-07-18',
+      }
+
+      const result = await analyzeCv({ settings, cvText: 'My raw CV text' })
+
+      expect(result.cvContext).toContain('Senior engineer')
+      expect(result.notes).toBe('No quantified results')
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        model: string
+        response_format?: { type: string }
+        messages: { role: string; content: string }[]
+      }
+      expect(body.model).toBe('gpt-4o-mini-2024-07-18')
+      expect(body.response_format).toEqual({ type: 'json_object' })
+      expect(body.messages[1].content).toContain('My raw CV text')
+    })
+
+    it('falls back to settings.model when no default model is set', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: '{"cvContext":"x","notes":""}' } }],
+          }),
+      })
+      globalThis.fetch = fetchMock
+
+      await analyzeCv({
+        settings: {
+          ...DEFAULT_SETTINGS,
+          openAiApiKey: 'sk-test',
+          model: 'gpt-4o',
+          matchAssessmentModel: '',
+        },
+        cvText: 'CV',
+      })
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        model: string
+      }
+      expect(body.model).toBe('gpt-4o')
+    })
+  })
+
+  describe('parseCvAnalysis', () => {
+    const emptyProfile = {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      linkedIn: '',
+      telegram: '',
+      website: '',
+    }
+
+    it('parses a clean JSON object', () => {
+      const result = parseCvAnalysis('{"cvContext":"Summary","notes":"Gaps"}')
+      expect(result).toEqual({
+        cvContext: 'Summary',
+        notes: 'Gaps',
+        profile: emptyProfile,
+      })
+    })
+
+    it('extracts profile contact fields and trims them', () => {
+      const result = parseCvAnalysis(
+        JSON.stringify({
+          cvContext: 'Summary',
+          notes: '',
+          profile: {
+            firstName: ' Jane ',
+            lastName: 'Doe',
+            email: 'jane@example.com',
+            phone: '+1 555',
+            linkedIn: 'linkedin.com/in/jane',
+            telegram: '@jane',
+            website: 'jane.dev',
+            unexpected: 'ignored',
+          },
+        }),
+      )
+
+      expect(result.profile).toEqual({
+        firstName: 'Jane',
+        lastName: 'Doe',
+        email: 'jane@example.com',
+        phone: '+1 555',
+        linkedIn: 'linkedin.com/in/jane',
+        telegram: '@jane',
+        website: 'jane.dev',
+      })
+    })
+
+    it('stringifies an object cvContext returned by the model', () => {
+      const result = parseCvAnalysis(
+        '{"cvContext":{"summary":"x","skills":["a","b"]},"notes":""}',
+      )
+      expect(result.cvContext).toContain('skills')
+      expect(result.cvContext).toContain('"a"')
+      expect(result.notes).toBe('')
+    })
+
+    it('defaults notes to an empty string when missing', () => {
+      const result = parseCvAnalysis('{"cvContext":"Summary"}')
+      expect(result.cvContext).toBe('Summary')
+      expect(result.notes).toBe('')
+    })
+
+    it('falls back to the raw response when JSON parsing fails', () => {
+      const result = parseCvAnalysis('Just plain text, not JSON')
+      expect(result.cvContext).toBe('Just plain text, not JSON')
+      expect(result.notes).toBe('')
     })
   })
 

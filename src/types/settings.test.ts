@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_COVER_LETTER_PROMPT,
+  DEFAULT_CV_ANALYSIS_PROMPT,
   DEFAULT_MATCH_ASSESSMENT_PROMPT,
   DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_SETTINGS,
@@ -90,5 +91,13 @@ describe('PRESET_MODELS', () => {
     expect(PRESET_MODELS).toContain('gpt-5.5')
     expect(PRESET_MODELS).toContain('gpt-5.4')
     expect(PRESET_MODELS).toContain('gpt-4o-mini-2024-07-18')
+  })
+})
+
+describe('DEFAULT_CV_ANALYSIS_PROMPT', () => {
+  it('requires a dated career timeline in cvContext', () => {
+    expect(DEFAULT_CV_ANALYSIS_PROMPT).toContain('Career timeline')
+    expect(DEFAULT_CV_ANALYSIS_PROMPT).toContain('start date')
+    expect(DEFAULT_CV_ANALYSIS_PROMPT).toContain('reverse chronological order')
   })
 })

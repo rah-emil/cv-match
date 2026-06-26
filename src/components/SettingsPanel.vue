@@ -128,8 +128,9 @@ function handleMaxTokensChange() {
         </a>
       </div>
       <p class="settings-panel__hint">
-        API credentials and models. Use a fast model for match evaluation, a
-        stronger one for CV generation.
+        API credentials and models. The default model handles other tasks such
+        as match evaluation and CV analysis; use a stronger one for CV
+        generation.
       </p>
 
       <a-form-item label="OpenAI API key" name="openAiApiKey">
@@ -161,7 +162,7 @@ function handleMaxTokensChange() {
         />
       </a-form-item>
 
-      <a-form-item label="Match evaluation model" name="matchAssessmentModel">
+      <a-form-item label="Default model for other tasks" name="matchAssessmentModel">
         <a-select
           v-model:value="form.matchAssessmentModel"
           mode="combobox"

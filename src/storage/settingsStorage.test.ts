@@ -41,6 +41,8 @@ describe('settingsStorage', () => {
       matchAssessmentModel: 'gpt-5-nano-2025-08-07',
       cvFilePath: '/Users/me/cv.pdf',
       cvContent: 'Full extracted CV text here',
+      cvContext: 'Distilled CV context',
+      cvNotes: 'Missing quantified results',
       themeMode: 'dark',
       systemPrompt: 'Custom prompt text',
       matchAssessmentPrompt: 'Custom match prompt',

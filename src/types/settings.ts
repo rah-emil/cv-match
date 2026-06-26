@@ -8,6 +8,8 @@ export interface ExtensionSettings {
   matchAssessmentModel: string
   cvFilePath: string
   cvContent: string
+  cvContext: string
+  cvNotes: string
   themeMode: ThemeMode
   systemPrompt: string
   matchAssessmentPrompt: string
@@ -115,6 +117,35 @@ Do not invent facts, achievements, technologies, employers, dates, or experience
 
 The final letter should be no longer than 150–220 words, easy to read, human-sounding, and suitable to send together with my CV.`
 
+export const DEFAULT_CV_ANALYSIS_PROMPT = `You will receive the raw, automatically extracted text of a candidate's CV/resume.
+
+Your task is to distill it into a compact, reusable context that will later be used to generate strong, tailored CVs and cover letters for many different job postings.
+
+Respond with ONE valid JSON object and nothing else, using exactly these fields:
+{"cvContext": "...", "notes": "...", "profile": {"firstName": "", "lastName": "", "email": "", "phone": "", "linkedIn": "", "telegram": "", "website": ""}}
+
+- cvContext: a concise but complete summary written in clear English. It must describe:
+  * what the candidate can do (core capabilities and domains),
+  * their professional experience and seniority level,
+  * the roles and positions they have held,
+  * a full chronological career timeline with exact dates for every role, project period, and education entry — this is mandatory. List experience in reverse chronological order. For each item include: job title, company/organization, start date, end date (or "Present"), and approximate duration if dates are partial (for example: "Jan 2021 – Mar 2024 (3 years)"). Never omit dates when they appear in the CV. If only a year is given, use that year. If dates are truly absent in the source, write "dates not specified" for that entry and mention the gap in notes.
+  * and a full list of all their skills — technologies, tools, soft skills, and spoken languages — listed exhaustively (for example as a "Skills: a, b, c" line) so nothing important is lost.
+  Structure cvContext with clear sections, including at minimum: "Career timeline" (with dates), "Skills", and a short "Summary". The timeline section is required and must not be skipped.
+  Only use information supported by the CV text. Do not invent dates, employers, or roles.
+
+- notes: a short, candid summary of what is missing, unclear, or weak in the CV that would make it hard to generate high-quality tailored CVs across different roles (for example: missing quantified results/metrics, unclear or missing dates, no seniority signals, missing contact details, vague responsibilities, no language proficiency levels). If nothing important is missing, return an empty string.
+
+- profile: contact details extracted from the CV, used to auto-fill the candidate's profile. Each field MUST be a string:
+  * firstName, lastName: the candidate's given and family name.
+  * email: primary email address.
+  * phone: phone number, including country code if present.
+  * linkedIn: LinkedIn profile URL or handle.
+  * telegram: Telegram handle (for example "@username").
+  * website: personal website or portfolio URL.
+  For any field that is not clearly present in the CV, return an empty string "". Do not invent or guess contact details.
+
+Do not wrap the JSON in code fences. Do not output anything before or after the JSON object.`
+
 export const PRESET_MODELS = [
   'gpt-5.5',
   'gpt-5.4',
@@ -139,6 +170,8 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   matchAssessmentModel: DEFAULT_MATCH_ASSESSMENT_MODEL,
   cvFilePath: '',
   cvContent: '',
+  cvContext: '',
+  cvNotes: '',
   themeMode: 'auto',
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   matchAssessmentPrompt: DEFAULT_MATCH_ASSESSMENT_PROMPT,

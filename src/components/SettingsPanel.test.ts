@@ -41,7 +41,7 @@ describe('SettingsPanel', () => {
       wrapper.find('input[placeholder="https://api.openai.com/v1"]').exists(),
     ).toBe(true)
     expect(wrapper.text()).toContain('CV generation model')
-    expect(wrapper.text()).toContain('Match evaluation model')
+    expect(wrapper.text()).toContain('Default model for other tasks')
     expect(wrapper.text()).toContain('Save settings')
   })
 
